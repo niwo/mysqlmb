@@ -1,0 +1,3 @@
+config/*.conf
+log/*.log
+backup/*
