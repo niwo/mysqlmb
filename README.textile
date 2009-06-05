@@ -3,7 +3,7 @@ h1. MySQL-Maintenance-Buddy
 MySQL-Maintenance-Buddy is a application which handles MySQL database backups
 and database optimization for daily maintenance.
 
-Copyright (C) 2009, Nik wolfgramm
+Copyright (C) 2009, Nik Wolfgramm
 
 h1. Features
 
@@ -15,11 +15,14 @@ h1. Features
 
 See mysqlmb.rb --usage for a full list of options
 
-h1. Usage 
+h1. Usage
+
 <code>mysqlmb.rb [options]</code>
+
 See mysqlmb.rb --usage for usage.
 
 h1. Requirements
+
 * Ruby
 * MySQL tools (mysql, mysqldump, mysqlcheck)
 * bash with some standard utilities (du, awk, bzip2)
