@@ -5,7 +5,6 @@ require 'lib/simplemail'
 require 'optparse'
 require 'date'
 
-include MySQLMaint
 include SimpleMail
 
 def fduration(duration)
@@ -93,28 +92,36 @@ optparse = OptionParser.new do|opts|
   end
 end
 
-if ARGV.empty? || options[:password].empty?
+begin
+  optparse.parse!
+rescue OptionParser::InvalidOption
+   puts "Invalide option provided, see usage:"
+   puts optparse.summarize
+  exit
+end
+
+if options[:config]
+  ## FIXME can't load options with values
+  optparse.load(options[:config])
+  unless File.exists?(options[:config])
+    puts "Abort: No configuration file found!\nSee config/mysqlmb.conf.orig for an example."
+    exit
+  end
+end
+
+if options[:password] == ''
   puts "Please provide at least a password for #{options[:user]} (MySQL user)\nSee usage for more details:"
   puts optparse.summarize
   exit
 end
 
-optparse.parse!
-
-if options[:config]
-  optparse.load(options[:config])
-  unless File.exists(options[:config])
-    puts "Abort: No configuration file found!\nSee config/config.rb.orig for an example."
-    exit
-  end
-end
-options[:credentials] = "--user=#{options[:user]} --password=#{options[:password]}"
-
-MySQLMaint.credentials = options[:credentials]
-MySQLMaint.mysql_path = options[:mysql_path]
-MySQLMaint.backup_path = options[:backup_path]
-MySQLMaint.host = options[:host]
-MySQLMaint.verbose = options[:verbose]
+mysqlmaint = MySQLMaint.new(options[:user],
+			options[:password],
+			options[:host],
+			options[:backup_path],
+			options[:mysql_path],
+			options[:verbose]
+)
 
 # 
 # execute the maintenance procedure
@@ -136,27 +143,26 @@ Settings:
 ----------
 END
 
-
 if options[:backup]
-  backup_error = MySQLMaint.db_backup(options[:databases])
+  backup_error = mysqlmaint.db_backup(options[:databases])
   if backup_error == 0
     mail_message += "All databases successfully backed up\n"
   else
     mail_message += "Backup of MySQL failed for #{backup_error} database(s)\n"
   end
   # calculate size of all backups
-  backup_size = MySQLMaint.backup_size
+  backup_size = mysqlmaint.backup_size
   mail_message += "Backup file size after compression: #{backup_size}"
 end
 
-if backup_error == false && options[:retention] > 0
-  cleanup = MySQLMaint.delete_old_backups(options[:retention])
+if backup_error == 0 && options[:retention] > 0
+  cleanup = mysqlmaint.delete_old_backups(options[:retention])
   cleanup = "no backups deleted" if cleanup.empty?
   mail_message += "Old backups removed: \n#{cleanup}\n"
 end
 
 if options[:optimize]
-  MySQLMaint.chkdb()
+  mysqlmaint.chkdb()
   mail_message += "All databases have been optimized with mysqlcheck\n"
 end
 

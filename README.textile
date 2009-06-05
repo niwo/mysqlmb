@@ -12,17 +12,20 @@ h1. Features
 * delete old database backups based on retention time
 * collect some maintenance stats such as duration of maitenance and number of db's backed up
 * send a maintenance summary by email
+* log actions to logfile
 
 See mysqlmb.rb --usage for a full list of options
 
 h1. Usage
 
+Launch the ruby script:
 <code>mysqlmb.rb [options]</code>
 
 See mysqlmb.rb --usage for usage.
 
 h1. Requirements
 
+List of dependencies:
 * Ruby
 * MySQL tools (mysql, mysqldump, mysqlcheck)
 * bash with some standard utilities (du, awk, bzip2)
