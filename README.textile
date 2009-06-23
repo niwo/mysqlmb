@@ -21,7 +21,7 @@ h1. Usage
 Launch the ruby script:
 <code>mysqlmb.rb [options]</code>
 
-See mysqlmb.rb --usage for usage.
+See mysqlmb.rb -? for usage.
 
 h1. Requirements
 
@@ -29,3 +29,13 @@ List of dependencies:
 * Ruby
 * MySQL tools (mysql, mysqldump, mysqlcheck)
 * bash with some standard utilities (du, awk, bzip2)
+
+h1. Installation
+
+* Download mysqlmb and move it to the desired application directory (i.e. /usr/local/mysqlmb)
+* Create a symlink in order to have mysqlmb in your execution path
+  * <code>ln -s /usr/local/mysqlmb/mysqlmb.rb /usr/local/bin/mysqlmb</code>
+* Have a mysql user with backup/optimization rights available
+  * Minimal rights for backups: SELECT, INSERT
+  * for optimizations: RELOAD, LOCK TABLES
+* start automating MySQL maintenance tasks using MySQL-Maintenance-Buddy!

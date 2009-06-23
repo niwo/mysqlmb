@@ -1,10 +1,9 @@
 class MySQLMaint
   require "logger"
-  LOGFILE = File.expand_path(File.dirname(__FILE__) + '/../log/mysqlmb.log')
 
   attr_accessor(:user, :password, :host, :backup_path, :mysql_path, :verbose)
 
-  def initialize(user, password, host, backup_path, mysql_path, verbose=false)
+  def initialize(user, password, host, backup_path, mysql_path, logfile_path, verbose=false)
     @user = user
     @password = password
     @credentials = "--user=#{user} --password=#{password}"
@@ -12,13 +11,13 @@ class MySQLMaint
     @backup_path = backup_path
     @mysql_path = mysql_path
     @verbose = verbose 
-    log_file = File.open(LOGFILE, File::WRONLY | File::APPEND | File::CREAT)
-    @logger = Logger.new(log_file, 10, 1024000)
+    logfile = File.open(logfile_path, File::WRONLY | File::APPEND | File::CREAT)
+    @logger = Logger.new(logfile, 10, 1024000)
   end
 
   def db_backup(databases=[])
     error_count = 0
-    if databases.empty?
+    if databases.empty? || databases.include?("all")
       databases = %x[echo "show databases" | mysql #{@credentials} | grep -v Database].split("\n")
       if $? != 0
         @logger.add(Logger::ERROR, "mysql show \"databases failed\": return value #{$?}, user: #{user}, using password: #{!password.empty?}")
@@ -29,9 +28,9 @@ class MySQLMaint
     databases.each do |db|
       dump_file = "#{@backup_path}/#{back_date}-#{db}"
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
-      rslt = %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} #{db} --host=#{host}> #{dump_file}.tmp]
+      puts rslt = %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{host} #{db} > #{dump_file}.tmp]
       if $? == 0
-        %x[mv #{dump_file}.tmp #{dump_file};bzip2 -f #{dump_file}]
+        %x[mv #{dump_file}.tmp #{dump_file}; bzip2 -f #{dump_file}]
         message = "++ Successfully backed up database: #{db}"
         puts message if @verbose
         @logger.add(Logger::INFO, message)

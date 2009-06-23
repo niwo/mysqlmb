@@ -1,0 +1,26 @@
+#
+# Example config file for MySQL Buddy
+#
+
+# disable backups
+:backup: true
+# disable database optimization
+:optimize: true
+# MySQL instance on localhost
+:host: localhost
+# access MySQL whith the user named "backup"
+:user: backup
+# specify a password for the user 
+:password: 'my__secret'
+# where to store the database dump files
+:backup_path: '/var/backups/mysql'
+# keep dump files fopr 30 days before deleting them
+:retention: 30
+# select databases to include in the backup 
+# default is ['all']
+# :databases: ['db-1', 'db-2', 'db3']
+:databases:
+  - 'db_test1'
+  - 'db_test2'
+# specify a receiver for the status mail, no mail will be sent if empty
+:mail_to: admin@example.com

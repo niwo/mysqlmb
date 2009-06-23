@@ -1,11 +1,20 @@
 #!/usr/bin/env ruby
 
-require 'lib/mysqlmaint'
-require 'lib/simplemail'
+# resolve the application path
+if File.symlink?(__FILE__)
+  APP_PATH = File.dirname(File.readlink(__FILE__))
+else
+  APP_PATH = File.dirname(__FILE__)
+end
+
+require APP_PATH + "/lib/mysqlmaint"
+require APP_PATH + "/lib/simplemail"
 require 'optparse'
 require 'date'
-
+require 'yaml'
 include SimpleMail
+
+LOGFILE = APP_PATH + "/log/mysqlmb.log"
 
 def fduration(duration)
   seconds = duration % 60
@@ -31,17 +40,17 @@ optparse = OptionParser.new do|opts|
   end
 
   options[:databases] = []
-  opts.on( '-d', '--databases [db1,db2,db3]', Array, 'Define which databases to backup: database1,database2 ... (default: all databases)' ) do |db|
+  opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup: database1,database2 ... (default: all databases)' ) do |db|
     options[:databases] = db
   end
 
   options[:backup] = true
-  opts.on( '-b', '--no-backup', 'Disable database backups' ) do
+  opts.on( '--no-backup', 'Disable database backups' ) do
     options[:backup] = false
   end
 
   options[:optimize] = true
-  opts.on( '-o', '--no-optimize', 'Disable database optimization' ) do
+  opts.on( '--no-optimize', 'Disable database optimization' ) do
     options[:optimize] = false
   end
 
@@ -70,8 +79,8 @@ optparse = OptionParser.new do|opts|
     options[:mail] = mail
   end
 
-  options[:backup_path] = 'backups'
-  opts.on( '--backup-path [PATH]', 'backup storage directory (default: backups)' ) do |backup_path|
+  options[:backup_path] =  File.expand_path(APP_PATH, '/backups')
+  opts.on( '--backup-path [PATH]', "backup storage directory (default: #{options[:backup_path]})" ) do |backup_path|
     options[:backup_path] = backup_path
   end
 
@@ -101,12 +110,12 @@ rescue OptionParser::InvalidOption
 end
 
 if options[:config]
-  ## FIXME can't load options with values
-  optparse.load(options[:config])
   unless File.exists?(options[:config])
-    puts "Abort: No configuration file found!\nSee config/mysqlmb.conf.orig for an example."
+    puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
     exit
   end
+  options = options.merge!(YAML.load_file(options[:config]))
+  options.each {|key, value| puts "#{key}: #{value || 'nil'}" } if options[:verbose]
 end
 
 if options[:password] == ''
@@ -120,6 +129,7 @@ mysqlmaint = MySQLMaint.new(options[:user],
 			options[:host],
 			options[:backup_path],
 			options[:mysql_path],
+ 			LOGFILE,
 			options[:verbose]
 )
 
@@ -152,7 +162,7 @@ if options[:backup]
   end
   # calculate size of all backups
   backup_size = mysqlmaint.backup_size
-  mail_message += "Backup file size after compression: #{backup_size}"
+  mail_message += "Backup file size after compression: #{backup_size}\n"
 end
 
 if backup_error == 0 && options[:retention] > 0

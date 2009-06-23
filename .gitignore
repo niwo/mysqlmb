@@ -1,3 +1,3 @@
-config/*.conf
+config/*.yml
 log/*.log
-backup/*
+backups/*
