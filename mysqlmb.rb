@@ -30,8 +30,9 @@ options = {}
 optparse = OptionParser.new do|opts|
   # Set a banner, displayed at the top
   # of the help screen.
-  opts.banner = "Usage: mysql-maintenance.rb [options]"
+  opts.banner = "Usage: mysqlmb.rb [options]"
   opts.program_name = "MySQL Maintenance Buddy"
+  opts.version = "1.0"
 
   # Define the options, and what they do
   options[:verbose] = false
@@ -99,13 +100,23 @@ optparse = OptionParser.new do|opts|
     puts opts
     exit
   end
+
+  opts.on_tail("--version", "Show version") do
+    puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
+    puts
+    puts "Copyright (C) 2009 Nik Wolfgramm"
+    puts "This is free software; see the source for copying conditions."
+    puts "There is NO warranty; not even for MERCHANTABILITY or"
+    puts "FITNESS FOR A PARTICULAR PURPOSE."
+    exit
+  end
 end
 
 begin
   optparse.parse!
 rescue OptionParser::InvalidOption
-   puts "Invalide option provided, see usage:"
-   puts optparse.summarize
+   puts "Invalide option provided."
+   puts optparse.help
   exit
 end
 
@@ -120,7 +131,7 @@ end
 
 if options[:password] == ''
   puts "Please provide at least a password for #{options[:user]} (MySQL user)\nSee usage for more details:"
-  puts optparse.summarize
+  puts optparse.help
   exit
 end
 
@@ -154,11 +165,11 @@ Settings:
 END
 
 if options[:backup]
-  backup_error = mysqlmaint.db_backup(options[:databases])
+  backup_error, message = mysqlmaint.db_backup(options[:databases])
   if backup_error == 0
-    mail_message += "All databases successfully backed up\n"
+    mail_message += "All databases successfully backed up: #{message}\n"
   else
-    mail_message += "Backup of MySQL failed for #{backup_error} database(s)\n"
+    mail_message += "Backup of MySQL failed: #{message}\n"
   end
   # calculate size of all backups
   backup_size = mysqlmaint.backup_size

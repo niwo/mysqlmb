@@ -41,8 +41,8 @@ class MySQLMaint
         @logger.add(Logger::ERROR, "#{message}, user: #{user}, using password: #{password.empty?}")
       end
     end
-    puts "#{databases.size - error_count} from #{databases.size} databases backed up successfully"
-    error_count
+    puts msg = "#{databases.size - error_count} from #{databases.size} databases backed up successfully"
+    return error_count, msg
   end
 
   def delete_old_backups(retention_time=30)
