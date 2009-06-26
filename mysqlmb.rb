@@ -22,7 +22,7 @@ def fduration(duration)
   minutes = duration % 60
   duration = (duration - minutes) / 60
   hours = duration % 24
-  "#{hours.to_i}:#{minutes.to_i}:#{seconds.to_i}"
+  printf("%02d:%02d:%02d", hours, minutes, seconds)
 end
 
 # Options Parser
@@ -149,13 +149,12 @@ mysqlmaint = MySQLMaint.new(options[:user],
 #
 
 backup_error = 0
-start_time = Time::now
-DATE = start_time.strftime("%d-%m-%Y")
+start_time = Time.now
 
 mail_message = <<END
 ----------------------------------------------------------
                 MySQL maintenance on #{options[:host]}
-                #{DATE}
+                #{start_time.strftime("%d-%m-%Y")}
 ----------------------------------------------------------
 Settings: 
   #{options[:retention]} days backup retention time
@@ -167,13 +166,13 @@ END
 if options[:backup]
   backup_error, message = mysqlmaint.db_backup(options[:databases])
   if backup_error == 0
-    mail_message += "All databases successfully backed up: #{message}\n"
+    mail_message += "All databases successfully backed up: #{message} \n"
   else
-    mail_message += "Backup of MySQL failed: #{message}\n"
+    mail_message += "Backup of MySQL failed: #{message} \n"
   end
   # calculate size of all backups
   backup_size = mysqlmaint.backup_size
-  mail_message += "Backup file size after compression: #{backup_size}\n"
+  mail_message += "Backup file size after compression: #{backup_size} \n"
 end
 
 if backup_error == 0 && options[:retention] > 0
@@ -188,7 +187,7 @@ if options[:optimize]
 end
 
 execution_time = (Time.now - start_time)
-mail_message += "----------\nMaintenance duration: #{fduration(execution_time)}\n"
+mail_message += "----------\nMaintenance duration: #{fduration(execution_time)} \n"
 
 # send confirmation email
 unless options[:mail_to].empty?
