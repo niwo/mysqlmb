@@ -28,25 +28,30 @@ class MySQLMaint
     databases.each do |db|
       dump_file = "#{@backup_path}/#{back_date}-#{db}"
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
-      puts rslt = %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{host} #{db} > #{dump_file}.tmp]
+      %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{host} #{db} > #{dump_file}.tmp]
       if $? == 0
         %x[mv #{dump_file}.tmp #{dump_file}; bzip2 -f #{dump_file}]
-        message = "++ Successfully backed up database: #{db}"
+        message = "INFO: Successfully backed up database: #{db}"
         puts message if @verbose
         @logger.add(Logger::INFO, message)
       else
         error_count += 1
-        message = "!! Backup failed on database: #{db}"
+        message = "ERROR: Backup failed on database: #{db}"
         puts message if @verbose
         @logger.add(Logger::ERROR, "#{message}, user: #{user}, using password: #{password.empty?}")
       end
     end
-    puts msg = "#{databases.size - error_count} from #{databases.size} databases backed up successfully"
+    msg = "#{databases.size - error_count} from #{databases.size} databases backed up successfully"
+    puts "INFO: End of backup: #{msg}" if @verbose
     return error_count, msg
   end
 
   def delete_old_backups(retention_time=30)
-    %x[find #{@backup_path} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
+    msg = %x[find #{@backup_path} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
+    if @verbose
+      msg.empty? ? puts("INFO: No backup files deleted") : puts("INFO: #{msg}")
+    end
+    msg
   end
 
   def chkdb()
@@ -57,7 +62,7 @@ class MySQLMaint
 
   def backup_size
     backup_size =%x[du -hsc #{@backup_path}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
-    puts("Compressed backup size: #{backup_size}") if @verbose
+    puts("INFO: Compressed backup file size: #{backup_size}") if @verbose
     backup_size
   end
 

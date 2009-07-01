@@ -27,73 +27,85 @@ end
 
 # Options Parser
 options = {}
-optparse = OptionParser.new do|opts|
+optparse = OptionParser.new do |opts|
   # Set a banner, displayed at the top
   # of the help screen.
   opts.banner = "Usage: mysqlmb.rb [options]"
   opts.program_name = "MySQL Maintenance Buddy"
   opts.version = "1.0"
-
+  
   # Define the options, and what they do
-  options[:verbose] = false
-  opts.on( '-v', '--verbose', 'Output more information' ) do
-    options[:verbose] = true
+  options[:config] = nil
+  opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options (see config/config.rb.orig for an example)' ) do |file|
+    options[:config] = file
+    unless File.exists?(file)
+      puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
+      exit
+    end
+    options = YAML.load_file(file)
   end
 
-  options[:databases] = []
+  options[:databases] ||= []
   opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup: database1,database2 ... (default: all databases)' ) do |db|
     options[:databases] = db
   end
 
-  options[:backup] = true
-  opts.on( '--no-backup', 'Disable database backups' ) do
-    options[:backup] = false
+  options[:backup] ||= true
+  opts.on( '--[no-]backup', 'Disable database backups' ) do |b|
+    options[:backup] = b
   end
 
-  options[:optimize] = true
-  opts.on( '--no-optimize', 'Disable database optimization' ) do
-    options[:optimize] = false
+  options[:optimize] ||= true
+  opts.on( '--[no-]optimize', 'Disable database optimization' ) do |o|
+    options[:optimize] = o
   end
 
-  options[:retention] = 30
-  opts.on( '-r', '--retention-time [DAYS]', Integer, 'How many days to keep the db backups (default: 30 days)' ) do |days|
+  options[:retention] ||= 30
+  opts.on( '-r', '--retention-time DAYS', Integer, 'How many days to keep the db backups (default: 30 days)' ) do |days|
     options[:retention] = days
   end
 
-  options[:host] = 'localhost'
-  opts.on( '-h', '--host [HOST]', 'MySQL hostname (default: localhost)' ) do |host|
+  options[:host] ||= 'localhost'
+  opts.on( '-h', '--host HOST', 'MySQL hostname (default: localhost)' ) do |host|
     options[:host] = host
   end
 
-  options[:user] = 'backup'
-  opts.on( '-u', '--user [USER]', 'MySQL backup user (default: backup)' ) do |user|
+  options[:user] ||= 'backup'
+  opts.on( '-u', '--user USER', 'MySQL backup user (default: backup)' ) do |user|
     options[:user] = user
   end
 
-  options[:password] = ''
+  options[:password] ||= ''
   opts.on( '-p', '--password PASSWORD', 'MySQL password' ) do |password|
     options[:password] = password
   end
 
-  options[:mail_to] = ''
-  opts.on( '-m', '--mail-to [MAIL-ADDRESS]', 'email address to send reports to, if not specified no mails will be sent' ) do |mail|
+  options[:mail_to] ||= ''
+  opts.on( '-m', '--mail-to MAIL-ADDRESS', 'email address to send reports to, if not specified no mails will be sent' ) do |mail|
     options[:mail] = mail
   end
 
-  options[:backup_path] =  File.expand_path(APP_PATH, '/backups')
-  opts.on( '--backup-path [PATH]', "backup storage directory (default: #{options[:backup_path]})" ) do |backup_path|
+  options[:backup_path] ||=  File.expand_path(APP_PATH, '/backups')
+  opts.on( '--backup-path PATH', "backup storage directory (default: #{options[:backup_path]})" ) do |backup_path|
     options[:backup_path] = backup_path
   end
 
-  options[:mysql_path] = '/usr/bin/'
-  opts.on( '--mysql-path [PATH]', 'Specify the MySQL utility path (default: /usr/bin/)' ) do |mysql_path|
+  options[:mysql_path] ||= '/usr/bin/'
+  opts.on( '--mysql-path PATH', 'Specify the MySQL utility path (default: /usr/bin/)' ) do |mysql_path|
     options[:mysql_path] = mysql_path
   end
 
-  options[:config] = nil
-  opts.on( '-c', '--config-file [FILE]', 'Specify a configuration file which contains all options (see config/config.rb.orig for an example)' ) do |file|
-    options[:config] = file
+  options[:verbose] = false
+  opts.on( '-v', '--verbose', 'Output more information' ) do
+    options[:verbose] = true 
   end
+
+  options[:debug] = false
+  opts.on( '--debug', 'Debugging mode: show arguments passed' ) do
+    options[:verbose] = true
+    options[:debug] = true
+  end
+
   # This displays the help screen, all programs are
   # assumed to have this option.
   opts.on( '-?', '--help', 'Display this screen' ) do
@@ -112,21 +124,19 @@ optparse = OptionParser.new do|opts|
   end
 end
 
+
 begin
-  optparse.parse!
+  optparse.order(ARGV)
+  optparse.parse
 rescue OptionParser::InvalidOption
    puts "Invalide option provided."
    puts optparse.help
   exit
 end
 
-if options[:config]
-  unless File.exists?(options[:config])
-    puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
-    exit
-  end
-  options = options.merge!(YAML.load_file(options[:config]))
-  options.each {|key, value| puts "#{key}: #{value || 'nil'}" } if options[:verbose]
+if options[:debug]
+  options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" } if options[:verbose]
+  exit
 end
 
 if options[:password] == ''
@@ -166,7 +176,7 @@ END
 if options[:backup]
   backup_error, message = mysqlmaint.db_backup(options[:databases])
   if backup_error == 0
-    mail_message += "All databases successfully backed up: #{message} \n"
+    mail_message += "All databases successfully backed up: #{message} \n\n"
   else
     mail_message += "Backup of MySQL failed: #{message} \n"
   end
@@ -186,8 +196,8 @@ if options[:optimize]
   mail_message += "All databases have been optimized with mysqlcheck\n"
 end
 
-execution_time = (Time.now - start_time)
-mail_message += "----------\nMaintenance duration: #{fduration(execution_time)} \n"
+execution_time = fduration(Time.now - start_time)
+mail_message += "----------\nMaintenance duration: #{execution_time} \n"
 
 # send confirmation email
 unless options[:mail_to].empty?
