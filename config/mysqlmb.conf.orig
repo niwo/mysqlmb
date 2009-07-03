@@ -1,7 +1,0 @@
---no-backup
---no-optimize
---host localhost
---user backup
---password=my__secret
---backup-path backup
---retention-time=30
