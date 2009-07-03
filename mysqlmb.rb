@@ -8,22 +8,14 @@ else
 end
 
 require APP_PATH + "/lib/mysqlmaint"
-require APP_PATH + "/lib/simplemail"
+require APP_PATH + "/lib/helpers"
 require 'optparse'
 require 'date'
 require 'yaml'
 include SimpleMail
+include DateFormat
 
 LOGFILE = APP_PATH + "/log/mysqlmb.log"
-
-def fduration(duration)
-  seconds = duration % 60
-  duration = (duration - seconds) / 60
-  minutes = duration % 60
-  duration = (duration - minutes) / 60
-  hours = duration % 24
-  printf("%02d:%02d:%02d", hours, minutes, seconds)
-end
 
 # Options Parser
 options = {}
@@ -42,7 +34,7 @@ optparse = OptionParser.new do |opts|
       puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
       exit
     end
-    options = YAML.load_file(file)
+    options = options.merge(YAML.load_file(file))
   end
 
   options[:databases] ||= []
@@ -176,7 +168,7 @@ END
 if options[:backup]
   backup_error, message = mysqlmaint.db_backup(options[:databases])
   if backup_error == 0
-    mail_message += "All databases successfully backed up: #{message} \n\n"
+    mail_message += "All databases successfully backed up: #{message} \n"
   else
     mail_message += "Backup of MySQL failed: #{message} \n"
   end
