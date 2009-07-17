@@ -200,11 +200,6 @@ Settings:
 ----------
 END
 
-def optimize
-  mysqlmaint.chkdb()
-  mail_message += "All databases have been optimized with mysqlcheck\n"
-end
-
 case command
 when "restore"
    mysqlmaint.db_restore(options[:databases], options[:restore_offset])
@@ -226,10 +221,12 @@ when "backup"
   end
 
   if options[:optimize]
-    optimize()
+    mysqlmaint.chkdb()
+    mail_message += "All databases have been optimized with mysqlcheck\n"
   end
 when "optimize"
-  optimize()
+  mysqlmaint.chkdb()
+  mail_message += "All databases have been optimized with mysqlcheck\n"
 end
 
 execution_time = fduration(Time.now - start_time)

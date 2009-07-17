@@ -1,10 +1,10 @@
 class MySQLMaint
+  attr_accessor(:user, :password, :host, :backup_path, :mysql_path, :verbose)  
   require "logger"
-
+  
+  # MySQL system databases
   SYSTEM_DATABASES = %w[mysql information_schema]
-
-  attr_accessor(:user, :password, :host, :backup_path, :mysql_path, :verbose)
-
+  
   def initialize(user,
                  password,
                  host,
@@ -18,8 +18,8 @@ class MySQLMaint
     @password = password
     @credentials = "--user=#{user} --password=#{password}"
     @host = host
-    @backup_path = backup_path
-    @mysql_path = mysql_path
+    @backup_path = rm_slash(backup_path)
+    @mysql_path = rm_slash(mysql_path)
     @date_format = date_format
     @verbose = verbose 
     logfile = File.open(logfile_path, File::WRONLY | File::APPEND | File::CREAT)
@@ -169,5 +169,10 @@ class MySQLMaint
     else
       return databases
     end
+  end
+  
+  # removes trailing slashed from path
+  def rm_slash(path)
+    path.gsub(/\/+$/, '')
   end
 end
