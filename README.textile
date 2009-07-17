@@ -8,6 +8,7 @@ Copyright (C) 2009, Nik Wolfgramm
 h1. Features
 
 * create MySQL backups using mysqldump for all or some databases
+# restore databases from backups
 * optimize database tables using mysqlcheck
 * delete old database backups based on retention time
 * collect some maintenance stats such as duration of maitenance and number of db's backed up
@@ -32,9 +33,9 @@ List of dependencies:
 
 h1. Installation
 
-* Download mysqlmb and move it to the desired application directory (i.e. /usr/local/share/mysqlmb)
+* Download mysqlmb and move it to the desired application directory (i.e. /usr/local/mysqlmb)
 * Create a symlink in order to have mysqlmb in your execution path
-** <code>ln -s /usr/local/share/mysqlmb/mysqlmb.rb /usr/local/bin/mysqlmb</code>
+** <code>ln -s /usr/local/mysqlmb/mysqlmb.rb /usr/local/sbin/mysqlmb</code>
 * Have a mysql user with backup/optimization rights available
 ** Minimal rights for backups: SELECT, INSERT
 ** for optimizations: RELOAD, LOCK TABLES

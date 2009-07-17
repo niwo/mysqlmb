@@ -22,13 +22,23 @@ options = {}
 optparse = OptionParser.new do |opts|
   # Set a banner, displayed at the top
   # of the help screen.
-  opts.banner = "Usage: mysqlmb.rb [options]"
+  opts.banner = "Usage: mysqlmb.rb COMMAND [options]"
   opts.program_name = "MySQL Maintenance Buddy"
-  opts.version = "1.0"
+  opts.version = "1.1"
+  opts.summary_width = 30
+  opts.summary_indent = "  "
+  opts.separator ""
+  opts.separator "List of Commands:"
+  opts.separator "  backup \t\t\t Backup databases"
+  opts.separator "  restore \t\t\t Restore databases"
+  opts.separator "  optimize \t\t\t Optimize databases"
+  opts.separator ""
+  opts.separator "Options:"
   
   # Define the options, and what they do
   options[:config] = nil
-  opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options (see config/config.rb.orig for an example)' ) do |file|
+  opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',
+                                       'see config/config.rb.orig for an example' ) do |file|
     options[:config] = file
     unless File.exists?(file)
       puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
@@ -38,13 +48,10 @@ optparse = OptionParser.new do |opts|
   end
 
   options[:databases] ||= []
-  opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup: database1,database2 ... (default: all databases)' ) do |db|
+  opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup (default: all)',
+                                                   'Syntax: database1,database2',
+                                                   'Keywords: all, user, system') do |db|
     options[:databases] = db
-  end
-
-  options[:backup] ||= true
-  opts.on( '--[no-]backup', 'Disable database backups' ) do |b|
-    options[:backup] = b
   end
 
   options[:optimize] ||= true
@@ -55,6 +62,11 @@ optparse = OptionParser.new do |opts|
   options[:retention] ||= 30
   opts.on( '-r', '--retention-time DAYS', Integer, 'How many days to keep the db backups (default: 30 days)' ) do |days|
     options[:retention] = days
+  end
+
+  options[:restore_offset] = 1
+  opts.on( '-o', '--restore-offset DAYS', Integer, 'How old are the backups to restore (default: 1 day)' ) do |days|
+    options[:restore_offset] = days
   end
 
   options[:host] ||= 'localhost'
@@ -73,7 +85,12 @@ optparse = OptionParser.new do |opts|
   end
 
   options[:mail_to] ||= ''
-  opts.on( '-m', '--mail-to MAIL-ADDRESS', 'email address to send reports to, if not specified no mails will be sent' ) do |mail|
+  opts.on( '-m', '--mail-to MAIL-ADDRESS', 'email address to send reports to' ) do |mail|
+    options[:mail_to] = mail
+  end
+
+  options[:mail] ||= 'false'
+  opts.on( '--[no-]mail', 'activate/deactivate mail messages' ) do |mail|
     options[:mail] = mail
   end
 
@@ -90,6 +107,11 @@ optparse = OptionParser.new do |opts|
   options[:verbose] = false
   opts.on( '-v', '--verbose', 'Output more information' ) do
     options[:verbose] = true 
+  end
+
+  options[:date_format] = "%Y-%m-%d"
+  opts.on( '--date-format FORMAT', 'Date format for backup file name (default: %Y-%m-%d)' ) do |format|
+    options[:date_format] = format
   end
 
   options[:debug] = false
@@ -117,11 +139,22 @@ optparse = OptionParser.new do |opts|
 end
 
 
+# get command passed
+command = ARGV[0]
+unless %w[backup restore optimize].include? command
+  puts "Please provide a valid action argument:"
+  puts
+  puts optparse.help
+  exit
+end
+
 begin
-  optparse.order(ARGV)
-  optparse.parse
-rescue OptionParser::InvalidOption
-   puts "Invalide option provided."
+  args = ARGV - [ARGV[0]]
+  optparse.order(args)
+  optparse.parse(args)
+rescue StandardError => message
+   puts "Invalide option or missing argument: #{message}"
+   puts
    puts optparse.help
   exit
 end
@@ -132,7 +165,8 @@ if options[:debug]
 end
 
 if options[:password] == ''
-  puts "Please provide at least a password for #{options[:user]} (MySQL user)\nSee usage for more details:"
+  puts "Please provide at least a password for \"#{options[:user]}\" (MySQL user)"
+  puts
   puts optparse.help
   exit
 end
@@ -143,6 +177,7 @@ mysqlmaint = MySQLMaint.new(options[:user],
 			options[:backup_path],
 			options[:mysql_path],
  			LOGFILE,
+                        options[:date_format],
 			options[:verbose]
 )
 
@@ -150,7 +185,7 @@ mysqlmaint = MySQLMaint.new(options[:user],
 # execute the maintenance procedure
 #
 
-backup_error = 0
+maintenance_error = 0
 start_time = Time.now
 
 mail_message = <<END
@@ -160,14 +195,22 @@ mail_message = <<END
 ----------------------------------------------------------
 Settings: 
   #{options[:retention]} days backup retention time
-  Backup enabled: #{options[:backup]}
+  Action: #{command}
   Database optimization enabled: #{options[:optimize]}
 ----------
 END
 
-if options[:backup]
-  backup_error, message = mysqlmaint.db_backup(options[:databases])
-  if backup_error == 0
+def optimize
+  mysqlmaint.chkdb()
+  mail_message += "All databases have been optimized with mysqlcheck\n"
+end
+
+case command
+when "restore"
+   mysqlmaint.db_restore(options[:databases], options[:restore_offset])
+when "backup"
+  maintenance_error, message = mysqlmaint.db_backup(options[:databases])
+  if maintenance_error == 0
     mail_message += "All databases successfully backed up: #{message} \n"
   else
     mail_message += "Backup of MySQL failed: #{message} \n"
@@ -175,25 +218,28 @@ if options[:backup]
   # calculate size of all backups
   backup_size = mysqlmaint.backup_size
   mail_message += "Backup file size after compression: #{backup_size} \n"
-end
 
-if backup_error == 0 && options[:retention] > 0
-  cleanup = mysqlmaint.delete_old_backups(options[:retention])
-  cleanup = "no backups deleted" if cleanup.empty?
-  mail_message += "Old backups removed: \n#{cleanup}\n"
-end
+  if maintenance_error == 0 && options[:retention] > 0
+    cleanup = mysqlmaint.delete_old_backups(options[:retention])
+    cleanup = "no backups deleted" if cleanup.empty?
+    mail_message += "Old backups removed: \n#{cleanup}\n"
+  end
 
-if options[:optimize]
-  mysqlmaint.chkdb()
-  mail_message += "All databases have been optimized with mysqlcheck\n"
+  if options[:optimize]
+    optimize()
+  end
+when "optimize"
+  optimize()
 end
 
 execution_time = fduration(Time.now - start_time)
 mail_message += "----------\nMaintenance duration: #{execution_time} \n"
 
 # send confirmation email
-unless options[:mail_to].empty?
+if options[:mail] && !options[:mail_to].empty?
   mail_subject = "MySQL Maintenence"
-  backup_error != 0 ? mail_subject += " - failed" :  mail_subject += " - successful"
+  maintenance_error != 0 ? mail_subject += " - failed" :  mail_subject += " - successful"
   SimpleMail.send_email("mysql@#{options[:host]}", "", options[:mail_to], "", mail_subject, mail_message)
 end
+
+puts "Maintenance duration: #{execution_time}" if options[:verbose]
