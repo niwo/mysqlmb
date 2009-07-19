@@ -15,10 +15,11 @@ require 'yaml'
 include SimpleMail
 include DateFormat
 
-LOGFILE = APP_PATH + "/log/mysqlmb.log"
-
 # Options Parser
+connection = {}
+paths = {:logfile => APP_PATH + "/log/mysqlmb.log"}
 options = {}
+
 optparse = OptionParser.new do |opts|
   # Set a banner, displayed at the top
   # of the help screen.
@@ -32,26 +33,27 @@ optparse = OptionParser.new do |opts|
   opts.separator "  backup \t\t\t Backup databases"
   opts.separator "  restore \t\t\t Restore databases"
   opts.separator "  optimize \t\t\t Optimize databases"
+  opts.separator "  list-db \t\t\t List databases"
+  opts.separator "  list-bak \t\t\t List database backups"
   opts.separator ""
   opts.separator "Options:"
   
   # Define the options, and what they do
-  options[:config] = nil
+  @config_file = nil
   opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',
                                        'see config/config.rb.orig for an example' ) do |file|
-    options[:config] = file
+    @config_file = file
     unless File.exists?(file)
-      puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.orig for an example."
+      puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
       exit
     end
-    options = options.merge(YAML.load_file(file))
   end
 
-  options[:databases] ||= []
+  @databases ||= []
   opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup (default: all)',
                                                    'Syntax: database1,database2',
                                                    'Keywords: all, user, system') do |db|
-    options[:databases] = db
+    @databases = db
   end
 
   options[:optimize] ||= true
@@ -69,19 +71,19 @@ optparse = OptionParser.new do |opts|
     options[:restore_offset] = days
   end
 
-  options[:host] ||= 'localhost'
+  connection[:host] ||= 'localhost'
   opts.on( '-h', '--host HOST', 'MySQL hostname (default: localhost)' ) do |host|
-    options[:host] = host
+    connection[:host] = host
   end
 
-  options[:user] ||= 'backup'
+  connection[:user] ||= 'backup'
   opts.on( '-u', '--user USER', 'MySQL backup user (default: backup)' ) do |user|
-    options[:user] = user
+    connection[:user] = user
   end
 
-  options[:password] ||= ''
+  connection[:password] ||= ''
   opts.on( '-p', '--password PASSWORD', 'MySQL password' ) do |password|
-    options[:password] = password
+    connection[:password] = password
   end
 
   options[:mail_to] ||= ''
@@ -94,14 +96,14 @@ optparse = OptionParser.new do |opts|
     options[:mail] = mail
   end
 
-  options[:backup_path] ||=  File.expand_path(APP_PATH, '/backups')
-  opts.on( '--backup-path PATH', "backup storage directory (default: #{options[:backup_path]})" ) do |backup_path|
-    options[:backup_path] = backup_path
+  paths[:backup] ||=  File.expand_path(APP_PATH, '/backups')
+  opts.on( '--backup-path PATH', "backup storage directory (default: #{paths[:backup]})" ) do |backup_path|
+    paths[:backup] = backup_path
   end
 
-  options[:mysql_path] ||= '/usr/bin/'
+  paths[:mysql] ||= '/usr/bin/'
   opts.on( '--mysql-path PATH', 'Specify the MySQL utility path (default: /usr/bin/)' ) do |mysql_path|
-    options[:mysql_path] = mysql_path
+    paths[:mysql] = mysql_path
   end
 
   options[:verbose] = false
@@ -109,7 +111,7 @@ optparse = OptionParser.new do |opts|
     options[:verbose] = true 
   end
 
-  options[:date_format] = "%Y-%m-%d"
+  options[:date_format] ||= "%Y-%m-%d"
   opts.on( '--date-format FORMAT', 'Date format for backup file name (default: %Y-%m-%d)' ) do |format|
     options[:date_format] = format
   end
@@ -141,7 +143,7 @@ end
 
 # get command passed
 command = ARGV[0]
-unless %w[backup restore optimize].include? command
+unless %w[backup restore optimize list-db list-bak].include? command
   puts "Please provide a valid action argument:"
   puts
   puts optparse.help
@@ -160,26 +162,18 @@ rescue StandardError => message
 end
 
 if options[:debug]
-  options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" } if options[:verbose]
+  options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
   exit
 end
 
-if options[:password] == ''
-  puts "Please provide at least a password for \"#{options[:user]}\" (MySQL user)"
+if connection[:password] == ''
+  puts "Please provide at least a password for \"#{connection[:user]}\" (MySQL user)"
   puts
   puts optparse.help
   exit
 end
 
-mysqlmaint = MySQLMaint.new(options[:user],
-			options[:password],
-			options[:host],
-			options[:backup_path],
-			options[:mysql_path],
- 			LOGFILE,
-                        options[:date_format],
-			options[:verbose]
-)
+mysqlmaint = MySQLMaint.new(connection, paths, options)
 
 # 
 # execute the maintenance procedure
@@ -190,7 +184,7 @@ start_time = Time.now
 
 mail_message = <<END
 ----------------------------------------------------------
-                MySQL maintenance on #{options[:host]}
+                MySQL maintenance on #{connection[:host]}
                 #{start_time.strftime("%d-%m-%Y")}
 ----------------------------------------------------------
 Settings: 
@@ -202,9 +196,9 @@ END
 
 case command
 when "restore"
-   mysqlmaint.db_restore(options[:databases], options[:restore_offset])
+   mysqlmaint.db_restore(@databases, options[:restore_offset])
 when "backup"
-  maintenance_error, message = mysqlmaint.db_backup(options[:databases])
+  maintenance_error, message = mysqlmaint.db_backup(@databases)
   if maintenance_error == 0
     mail_message += "All databases successfully backed up: #{message} \n"
   else
@@ -227,6 +221,12 @@ when "backup"
 when "optimize"
   mysqlmaint.chkdb()
   mail_message += "All databases have been optimized with mysqlcheck\n"
+when "list-db"
+  dbs = mysqlmaint.get_databases(@databases, "mysql")
+  dbs.each { |db| puts db }
+when "list-bak"
+  dbs = mysqlmaint.get_databases(@databases, "backup", options[:restore_offset])
+  dbs.each { |db| puts db }
 end
 
 execution_time = fduration(Time.now - start_time)
@@ -236,7 +236,7 @@ mail_message += "----------\nMaintenance duration: #{execution_time} \n"
 if options[:mail] && !options[:mail_to].empty?
   mail_subject = "MySQL Maintenence"
   maintenance_error != 0 ? mail_subject += " - failed" :  mail_subject += " - successful"
-  SimpleMail.send_email("mysql@#{options[:host]}", "", options[:mail_to], "", mail_subject, mail_message)
+  SimpleMail.send_email("mysql@#{connection[:host]}", "", options[:mail_to], "", mail_subject, mail_message)
 end
 
 puts "Maintenance duration: #{execution_time}" if options[:verbose]

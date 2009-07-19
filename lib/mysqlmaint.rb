@@ -1,28 +1,19 @@
-class MySQLMaint
-  attr_accessor(:user, :password, :host, :backup_path, :mysql_path, :verbose)  
+class MySQLMaint 
   require "logger"
   
   # MySQL system databases
   SYSTEM_DATABASES = %w[mysql information_schema]
   
-  def initialize(user,
-                 password,
-                 host,
-                 backup_path,
-                 mysql_path,
-                 logfile_path,
-                 date_format = "%Y-%m-%d",
-                 verbose = false
-                 )
-    @user = user
-    @password = password
-    @credentials = "--user=#{user} --password=#{password}"
-    @host = host
-    @backup_path = rm_slash(backup_path)
-    @mysql_path = rm_slash(mysql_path)
-    @date_format = date_format
-    @verbose = verbose 
-    logfile = File.open(logfile_path, File::WRONLY | File::APPEND | File::CREAT)
+  def initialize(connection, paths, params)
+    @user = connection[:user]
+    @password = connection[:password]
+    @host = connection[:host]
+    @credentials = "--user=#{@user} --password=#{@password}"
+    @backup_path = rm_slash(paths[:backup])
+    @mysql_path = rm_slash(paths[:mysql])
+    @date_format = params[:date_format] || "%Y-%m-%d"
+    @verbose = params[:verbose] || false 
+    logfile = File.open(paths[:logfile], File::WRONLY | File::APPEND | File::CREAT)
     @logger = Logger.new(logfile, 10, 1024000)
   end
 
@@ -73,7 +64,9 @@ class MySQLMaint
          puts message if @verbose
          next
        else 
-         puts "INFO: created database #{db}" if @verbose
+         message = "INFO: created database #{db}"
+         puts message if @verbose
+         @logger.add(Logger::INFO, message)
        end
      end
 
@@ -90,7 +83,8 @@ class MySQLMaint
        puts message if @verbose
        next
      else
-       puts "INFO: restored database #{db}" if @verbose
+       message = "INFO: restored database #{db}"
+       puts message if @verbose
      end
 
      # delete decompressed backup file
@@ -111,7 +105,7 @@ class MySQLMaint
   end
 
   def chkdb()
-    check = %x[#{@mysql_path}/mysqlcheck --optimize -A #{@credentials} --host=#{host}]
+    check = %x[#{@mysql_path}/mysqlcheck --optimize -A #{@credentials} --host=#{@host}]
     @logger.add(Logger::INFO, check)
     puts check if @verbose
   end
@@ -120,42 +114,6 @@ class MySQLMaint
     backup_size =%x[du -hsc #{@backup_path}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
     puts("INFO: Compressed backup file size: #{backup_size}") if @verbose
     backup_size
-  end
-
-  private
-  def back_date(adjustment = 0)
-    (DateTime::now + (adjustment)).strftime(@date_format)
-  end
-
-  def all_databases(source = "mysql", adjustment = 0)
-    case source
-    when "mysql"
-      databases = %x[echo "show databases" | mysql #{@credentials} | grep -v Database].split("\n")
-      if $? != 0
-        @logger.add(Logger::ERROR, "mysql \"show databases\" failed: return value #{$?}, user: #{user}, using password: #{!password.empty?}")
-        exit
-      end
-      return databases
-    when "backup"
-      databases = []
-      backups = %x[find #{@backup_path} -maxdepth 1 -type f -name #{back_date(adjustment)}*.bz2].split("\n")
-      if $? != 0
-        puts $?
-        exit
-      end
-      backups.each { |file| databases << file.match(/#{@backup_path}#{back_date(adjustment)}-(.+).bz2$/)[1] }
-      return databases
-    end
-  end
-
-  def user_databases(source = "mysql", adjustment = 0)
-    dbs = all_databases(source, adjustment) - system_databases()
-    puts dbs
-    dbs
-  end
-
-  def system_databases
-    SYSTEM_DATABASES
   end
 
   def get_databases(databases = [], source = "mysql", adjustment = 0) 
@@ -171,6 +129,42 @@ class MySQLMaint
     end
   end
   
+  private
+  def back_date(adjustment = 0)
+    (DateTime::now + (adjustment)).strftime(@date_format)
+  end
+
+  def all_databases(source = "mysql", time = 0)
+    case source
+    when "mysql"
+      databases = %x[echo "show databases" | mysql #{@credentials} | grep -v Database].split("\n")
+      if $? != 0
+        @logger.add(Logger::ERROR, "mysql \"show databases\" failed: return value #{$?}, user: #{user}, using password: #{!password.empty?}")
+        exit
+      end
+      return databases
+    when "backup"
+      databases = []
+      backups = %x[find #{@backup_path} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
+      if $? != 0
+        puts $?
+        exit
+      end
+      backups.each { |file| databases << file.match(/#{@backup_path}\/#{back_date(time)}-(.+).bz2$/)[1] }
+      return databases
+    end
+  end
+
+  def user_databases(source = "mysql", adjustment = 0)
+    dbs = all_databases(source, adjustment) - system_databases()
+    puts dbs
+    dbs
+  end
+
+  def system_databases
+    SYSTEM_DATABASES
+  end
+
   # removes trailing slashed from path
   def rm_slash(path)
     path.gsub(/\/+$/, '')

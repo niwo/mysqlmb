@@ -17,11 +17,18 @@
 # specify a password for the user 
 :password: 'my__secret'
 
+# path to mysql commands
+:mysql_path:     '/usr/bin/mysql'
+:mysqldump_path: '/usr/bin/mysqldump'
+
 # where to store the database dump files
 :backup_path: '/var/backups/mysql'
 
 # keep dump files fopr 30 days before deleting them
 :retention: 30
+
+# date format for backup files
+:date_format: "%Y-%m-%d"
 
 # select databases to include in the backup 
 # default is ['all']
