@@ -1,16 +1,17 @@
 #!/usr/bin/env ruby
 
+require 'lib/parser'
+
 module MySqlMb
   
   class Runner
-      
-    def initialize(options={})
-      @connection = options[:connection]
-      @paths = options[:paths]
-      @options = options[:options]
+    
+    def initialize(args)
+      @args = args
     end
-  
-    def execute(command)
+    
+    def run(command)
+      load_options(command)
       mail_message = mail_header()
       mysqlmaint = MySQLMaint.new(@connection, @paths, @options)
   
@@ -68,6 +69,12 @@ module MySqlMb
       if options[:verbose] && %w[backup restore optimize].include?(command)
         puts "Maintenance duration: #{execution_time}"
       end
+    end
+    
+    private 
+    
+    def load_options(command)
+      @connection, @paths, @options = Parser.new.parse(command, @args)
     end
   
     def mail_header
