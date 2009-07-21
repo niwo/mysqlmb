@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+#--
+# Copyright 2009 by Nik Wolfgramm.
+# All rights reserved.
+# 
+#++
+
+# resolve the application path
+if File.symlink?(__FILE__)
+  APP_PATH = File.dirname(File.readlink(__FILE__))
+else
+  APP_PATH = File.dirname(__FILE__)
+end
+
+require APP_PATH + "/lib/runner.rb"
+
+begin
+  MySqlMB::Runner.new.run ARGV
+rescue SystemExitException => e
+  exit e.exit_code
+end

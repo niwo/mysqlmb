@@ -75,7 +75,7 @@ class MySQLMaint
      # decompress dump file
      %x[bunzip2 -k #{dump_file}.bz2]
      # restore database
-     %x[mysql #{@credentials} --host=#{host} #{db} < #{dump_file}]
+     %x[mysql #{@credentials} --host=#{@host} #{db} < #{dump_file}]
      if $? != 0
        error_count += 1
        message = "ERROR: can't restore database #{db} message: #{$?}"
@@ -129,11 +129,11 @@ class MySQLMaint
     end
   end
   
-  private
   def back_date(adjustment = 0)
     (DateTime::now + (adjustment)).strftime(@date_format)
   end
 
+  private
   def all_databases(source = "mysql", time = 0)
     case source
     when "mysql"
@@ -157,7 +157,6 @@ class MySQLMaint
 
   def user_databases(source = "mysql", adjustment = 0)
     dbs = all_databases(source, adjustment) - system_databases()
-    puts dbs
     dbs
   end
 
