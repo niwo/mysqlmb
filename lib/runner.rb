@@ -4,10 +4,10 @@ module MySqlMb
   
   class Runner
       
-    def initialize(params)
-      @connection = params[:connection]
-      @paths = params[:paths]
-      @options = params[:options]
+    def initialize(options={})
+      @connection = options[:connection]
+      @paths = options[:paths]
+      @options = options[:options]
     end
   
     def execute(command)
@@ -72,16 +72,16 @@ module MySqlMb
   
     def mail_header
       mail_message = <<END
-  ----------------------------------------------------------
-                  MySQL maintenance on #{connection[:host]}
+----------------------------------------------------------
+                MySQL maintenance on #{connection[:host]}
                   #{start_time.strftime("%d-%m-%Y")}
-  ----------------------------------------------------------
-  Settings:
-    #{options[:retention]} days backup retention time
-    Action: #{command}
-    Database optimization enabled: #{options[:optimize]}
-  ----------
-  END
+----------------------------------------------------------
+Settings:
+  #{options[:retention]} days backup retention time
+  Action: #{command}
+  Database optimization enabled: #{options[:optimize]}
+----------
+END
     end
   
   end # class

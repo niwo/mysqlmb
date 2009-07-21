@@ -15,8 +15,9 @@ end
 
 require APP_PATH + "/lib/runner.rb"
 
-begin
-  MySqlMB::Runner.new.run ARGV
-rescue SystemExitException => e
-  exit e.exit_code
-end
+#begin
+  MySqlMb::Runner.new.run ARGV
+#rescue StandardError => e
+#  puts e.message
+#  exit 0
+#end
