@@ -20,9 +20,9 @@ See mysqlmb.rb --usage for a full list of options
 h1. Usage
 
 Launch the ruby script:
-<code>mysqlmb.rb [options]</code>
+<code>mysqlmb COMMAND [options]</code>
 
-See mysqlmb.rb -? for usage.
+See mysqlmb -? for usage.
 
 h1. Requirements
 
