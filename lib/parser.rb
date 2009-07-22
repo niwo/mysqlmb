@@ -10,14 +10,21 @@ include DateFormat
 module MySqlMb
 
   class Parser
+    # all commands
+    CMD      = %w[backup restore optimize list]
+
+    # commands which require no MySQL user/password
+    NO_CREDENTIALS = {'list' => {:list_type => :backup}}
+
     def initialize
       @connection = {}
       @paths = {:logfile => APP_PATH + "/log/mysqlmb.log"}
       @options = {}
+      @databases = []
     end
   
     def parse(command, args)
-      unless %w[backup restore optimize list-db list-bak].include? command
+      unless CMD.include? command
         puts "Please provide a valid action argument:"
         puts
         puts optparse.help
@@ -25,7 +32,7 @@ module MySqlMb
       end
   
       begin
-        optp = optparse
+        optp = optparse()
         optp.parse(args)
       rescue StandardError => message
         puts "Invalide option or missing argument: #{message}"
@@ -34,27 +41,41 @@ module MySqlMb
         exit
       end
   
-      if @options[:debug]
-        @options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
-        exit
-      end
+      list_options if @options[:debug]
   
-      if @connection[:password] == ''
+      if missing_credentials? command
         puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
         puts
         puts optparse.help
         exit
       end
-      return @connection, @paths, @options
+
+      return @connection, @paths, @options, @databases
     end
     
     private
+
+    def list_options
+      @options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
+      exit
+    end
+
+    def missing_credentials?(command)
+      if (@connection[:user] == '' || @connection[:password] == '')
+        if NO_CREDENTIALS.has_key?(command)
+          @options.each {|key, value| return false if NO_CREDENTIALS[command][key] === value }
+          return true
+        end
+        return true
+      end
+      false
+    end
     
     def optparse
       return OptionParser.new do |opts|
       # Set a banner, displayed at the top
       # of the help screen.
-      opts.banner = "Usage: mysqlmb.rb COMMAND [options]"
+      opts.banner = "Usage: mysqlmb COMMAND [options]"
       opts.program_name = "MySQL Maintenance Buddy"
       opts.version = "1.1"
       opts.summary_width = 30
@@ -64,8 +85,7 @@ module MySqlMb
       opts.separator "  backup \t\t\t Backup databases"
       opts.separator "  restore \t\t\t Restore databases"
       opts.separator "  optimize \t\t\t Optimize databases"
-      opts.separator "  list-db \t\t\t List databases"
-      opts.separator "  list-bak \t\t\t List database backups"
+      opts.separator "  list \t\t\t\t List databases or backups"
       opts.separator ""
       opts.separator "Options:"
 
@@ -124,6 +144,11 @@ module MySqlMb
       @options[:mail] ||= 'false'
       opts.on( '--[no-]mail', 'activate/deactivate mail messages' ) do |mail|
         @options[:mail] = mail
+      end
+
+      @options[:list_type] ||= :mysql
+      opts.on( '-l', '--list-type TYPE', [:mysql, :backup], 'Select list type (mysql, backup)' ) do |type|
+        @options[:list_type] = type
       end
 
       @paths[:backup] ||=  File.expand_path(APP_PATH, '/backups')
