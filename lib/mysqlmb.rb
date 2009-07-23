@@ -28,7 +28,7 @@ class MySQLMaint
     databases.each do |db|
       dump_file = "#{@backup_path}/#{back_date()}-#{db}"
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
-      %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{host} #{db} > #{dump_file}.tmp]
+      %x[#{@mysql_path}/mysqldump --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
       if $? == 0
         %x[mv #{dump_file}.tmp #{dump_file}; bzip2 -f #{dump_file}]
         message = "INFO: Successfully backed up database: #{db}"

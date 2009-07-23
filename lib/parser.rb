@@ -31,15 +31,15 @@ module MySqlMb
         exit
       end
   
-      begin
+      #begin
         optp = optparse()
         optp.parse(args)
-      rescue StandardError => message
-        puts "Invalide option or missing argument: #{message}"
-        puts
-        puts optparse.help
-        exit
-      end
+      #rescue StandardError => message
+      #  puts "Invalide option or missing argument: #{message}"
+      #  puts
+      #  puts optparse.help
+      #  exit
+      #end
   
       list_options if @options[:debug]
   
@@ -58,6 +58,21 @@ module MySqlMb
     def list_options
       @options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
       exit
+    end
+
+    def load_configfile(file)
+       file_options = YAML.load_file(file)
+       file_options.each do |key, value|
+         # connection values
+         if [:host, :user, :password].include? key
+           @connection[key] = value
+         # path values
+         elsif [:backup, :mysql, :mysqldump]
+           @paths[key] = value
+         else
+           @options[key] = value
+         end
+       end
     end
 
     def missing_credentials?(command)
@@ -97,6 +112,7 @@ module MySqlMb
           puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
           exit
         end
+        load_configfile(file)
       end
 
       @databases ||= []
