@@ -24,32 +24,8 @@ module MySqlMb
     end
   
     def parse(command, args)
-      #begin
-        optp = optparse()
-        optp.parse(args)
-      #rescue StandardError => message
-      #  puts "Invalide option or missing argument: #{message}"
-      #  puts
-      #  puts optparse.help
-      #  exit
-      #end
-  
+      optparse(command, args)
       list_options if @options[:debug]
-  
-      if missing_credentials? command
-        puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
-        puts
-        puts optparse.help
-        exit
-      end
-      
-      unless options[:version] || CMD.include?(command)
-        puts "Please provide a valid action argument:"
-        puts
-        puts optparse.help
-        exit
-      end
-
       return @connection, @paths, @options, @databases
     end
     
@@ -87,8 +63,8 @@ module MySqlMb
       false
     end
     
-    def optparse
-      return OptionParser.new do |opts|
+    def optparse(command, args)
+      optparse = OptionParser.new do |opts|
       # Set a banner, displayed at the top
       # of the help screen.
       opts.banner = "Usage: mysqlmb COMMAND [options]"
@@ -192,18 +168,34 @@ module MySqlMb
       # assumed to have this option.
       opts.on( '-?', '--help', 'Display this screen' ) do
         puts opts
-        exit
+        return false
       end
 
-      opts.on_tail('--version', "Show version") do
+      opts.on_tail('-v', '--version', "Show version") do
           puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
           puts
           puts "Copyright (C) 2009 Nik Wolfgramm"
           puts "This is free software; see the source for copying conditions."
           puts "There is NO warranty; not even for MERCHANTABILITY or"
           puts "FITNESS FOR A PARTICULAR PURPOSE."
-          exit!
+          abort
         end
+      end
+      
+      optparse.parse!(args)
+      
+      if missing_credentials? command
+        puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
+        puts
+        puts optparse.help
+        return false 
+      end
+
+      unless @options[:version] || CMD.include?(command)
+        puts "Please provide a valid action argument:"
+        puts
+        puts optparse.help
+        return false
       end
     end
 
