@@ -12,6 +12,7 @@ if File.symlink?(__FILE__)
 else
   APP_PATH = File.dirname(__FILE__)
 end
+$: << File.expand_path(APP_PATH, "/../lib")
 
 require APP_PATH + "/lib/runner.rb"
 

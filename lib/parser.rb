@@ -24,15 +24,15 @@ module MySqlMb
     end
   
     def parse(command, args)
-      begin
+      #begin
         optp = optparse()
-        optp.parse!(args)
-      rescue StandardError => message
-        puts "Invalide option or missing argument: #{message}"
-        puts
-        puts optparse.help
-        exit
-      end
+        optp.parse(args)
+      #rescue StandardError => message
+      #  puts "Invalide option or missing argument: #{message}"
+      #  puts
+      #  puts optparse.help
+      #  exit
+      #end
   
       list_options if @options[:debug]
   
@@ -58,6 +58,21 @@ module MySqlMb
     def list_options
       @options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
       exit
+    end
+
+    def load_configfile(file)
+       file_options = YAML.load_file(file)
+       file_options.each do |key, value|
+         # connection values
+         if [:host, :user, :password].include? key
+           @connection[key] = value
+         # path values
+         elsif [:backup, :mysql, :mysqldump]
+           @paths[key] = value
+         else
+           @options[key] = value
+         end
+       end
     end
 
     def missing_credentials?(command)
@@ -91,11 +106,6 @@ module MySqlMb
       opts.separator "Options:"
 
       # Define the options, and what they do
-      @connection[:host] ||= 'localhost'
-      opts.on( '-h', '--host HOST', 'MySQL hostname (default: localhost)' ) do |host|
-        @connection[:host] = host
-      end
-
       @connection[:user] ||= 'backup'
       opts.on( '-u', '--user USER', 'MySQL backup user (default: backup)' ) do |user|
         @connection[:user] = user
