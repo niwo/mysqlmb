@@ -11,7 +11,7 @@ module MySqlMb
 
   class Parser
     # all commands
-    CMD      = %w[backup restore optimize list]
+    CMD = %w[backup restore optimize list]
 
     # commands which require no MySQL user/password
     NO_CREDENTIALS = {'list' => {:list_type => :backup}}
@@ -24,16 +24,9 @@ module MySqlMb
     end
   
     def parse(command, args)
-      unless CMD.include? command
-        puts "Please provide a valid action argument:"
-        puts
-        puts optparse.help
-        exit
-      end
-  
       begin
         optp = optparse()
-        optp.parse(args)
+        optp.parse!(args)
       rescue StandardError => message
         puts "Invalide option or missing argument: #{message}"
         puts
@@ -45,6 +38,13 @@ module MySqlMb
   
       if missing_credentials? command
         puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
+        puts
+        puts optparse.help
+        exit
+      end
+      
+      unless options[:version] || CMD.include?(command)
+        puts "Please provide a valid action argument:"
         puts
         puts optparse.help
         exit
@@ -63,6 +63,7 @@ module MySqlMb
     def missing_credentials?(command)
       if (@connection[:user] == '' || @connection[:password] == '')
         if NO_CREDENTIALS.has_key?(command)
+          return false if NO_CREDENTIALS[command].empty?
           @options.each {|key, value| return false if NO_CREDENTIALS[command][key] === value }
           return true
         end
@@ -77,7 +78,7 @@ module MySqlMb
       # of the help screen.
       opts.banner = "Usage: mysqlmb COMMAND [options]"
       opts.program_name = "MySQL Maintenance Buddy"
-      opts.version = "1.1"
+      opts.version = "1.2"
       opts.summary_width = 30
       opts.summary_indent = "  "
       opts.separator ""
@@ -90,15 +91,21 @@ module MySqlMb
       opts.separator "Options:"
 
       # Define the options, and what they do
-      @config_file = nil
-      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',                                          'see config/config.rb.orig for an example' ) do |file|
-        @config_file = file
-        unless File.exists?(file)
-          puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
-          exit
-        end
+      @connection[:host] ||= 'localhost'
+      opts.on( '-h', '--host HOST', 'MySQL hostname (default: localhost)' ) do |host|
+        @connection[:host] = host
       end
 
+      @connection[:user] ||= 'backup'
+      opts.on( '-u', '--user USER', 'MySQL backup user (default: backup)' ) do |user|
+        @connection[:user] = user
+      end
+
+      @connection[:password] ||= ''
+      opts.on( '-p', '--password PASSWORD', 'MySQL password' ) do |password|
+        @connection[:password] = password
+      end
+      
       @databases ||= []
       opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup (default: all)',
                                                        'Syntax: database1,database2',
@@ -119,21 +126,6 @@ module MySqlMb
       @options[:restore_offset] = 1
       opts.on( '-o', '--restore-offset DAYS', Integer, 'How old are the backups to restore (default: 1 day)' ) do |days|
         @options[:restore_offset] = days
-      end
-
-      @connection[:host] ||= 'localhost'
-      opts.on( '-h', '--host HOST', 'MySQL hostname (default: localhost)' ) do |host|
-        @connection[:host] = host
-      end
-
-      @connection[:user] ||= 'backup'
-      opts.on( '-u', '--user USER', 'MySQL backup user (default: backup)' ) do |user|
-        @connection[:user] = user
-      end
-
-      @connection[:password] ||= ''
-      opts.on( '-p', '--password PASSWORD', 'MySQL password' ) do |password|
-        @connection[:password] = password
       end
 
       @options[:mail_to] ||= ''
@@ -161,14 +153,23 @@ module MySqlMb
         @paths[:mysql] = mysql_path
       end
 
-      @options[:verbose] = false
-        opts.on( '-v', '--verbose', 'Output more information' ) do
-        @options[:verbose] = true
-      end
-
       @options[:date_format] ||= "%Y-%m-%d"
       opts.on( '--date-format FORMAT', 'Date format for backup file name (default: %Y-%m-%d)' ) do |format|
         @options[:date_format] = format
+      end
+      
+      @config_file = nil
+      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',                                          'see config/config.rb.orig for an example' ) do |file|
+        @config_file = file
+        unless File.exists?(file)
+          puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
+          exit
+        end
+      end
+      
+      @options[:verbose] = false
+        opts.on( '-V', '--verbose', 'Output more information' ) do
+        @options[:verbose] = true
       end
 
       @options[:debug] = false
@@ -184,14 +185,14 @@ module MySqlMb
         exit
       end
 
-      opts.on_tail("--version", "Show version") do
+      opts.on_tail('--version', "Show version") do
           puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
           puts
           puts "Copyright (C) 2009 Nik Wolfgramm"
           puts "This is free software; see the source for copying conditions."
           puts "There is NO warranty; not even for MERCHANTABILITY or"
           puts "FITNESS FOR A PARTICULAR PURPOSE."
-          exit
+          exit!
         end
       end
     end
