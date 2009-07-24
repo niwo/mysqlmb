@@ -24,7 +24,6 @@ module MySqlMb
   
     def parse(command, args)
       optp = optparse(command, args)
-      load_configfile(@options[:config_file]) if @options[:config_file]
       set_defaults()
       list_options if @options[:debug]
       verify_input(optp, command)
@@ -191,6 +190,7 @@ module MySqlMb
           exit
         end
         @options[:config_file] = file
+        load_configfile(file)
       end
       
       opts.on( '--verbose', 'Output more information' ) do
