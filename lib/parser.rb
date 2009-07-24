@@ -61,17 +61,17 @@ module MySqlMb
       end
     end
  
-    def load_configfile(file)
+    def load_configfile(file, force = false)
        file_options = YAML.load_file(file)
        file_options.each do |key, value|
          # connection values
          if [:host, :user, :password].include? key
-           @connection[key] = value
+           force ? @connection[key] = value : @connection[key] ||= value
          # path values
          elsif [:backup, :mysql, :mysqldump].include? key
-           @paths[key] = value
+           force ? @paths[key] = value : @paths[key] ||= value
          else
-           @options[key] = value
+           force ? @options[key] = value : @options[key] ||= value
          end
        end
     end
