@@ -78,7 +78,7 @@ module MySqlMb
     
     def set_defaults
       # default databases (all)
-      @databases = []
+      @databases                ||= []
       
       # default connetion
       @connection[:user]        ||= 'backup'
