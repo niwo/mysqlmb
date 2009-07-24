@@ -17,10 +17,9 @@ $: << File.expand_path(APP_PATH, "/../lib")
 require APP_PATH + "/lib/runner.rb"
 
 command = ARGV[0]
-args = ARGV - [ARGV[0]]
 
 #begin
-  MySqlMb::Runner.new(args).run command
+  MySqlMb::Runner.new(ARGV).run command
 #rescue StandardError => e
 #  puts e.message
 #  exit 0

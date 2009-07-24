@@ -14,7 +14,7 @@ module MySqlMb
     CMD = %w[backup restore optimize list]
 
     # commands which require no MySQL user/password
-    NO_CREDENTIALS = {'list' => {:list_type => :backup}
+    NO_CREDENTIALS = {'list' => {:list_type => :backup}}
 
     def initialize
       @connection = {}
@@ -24,42 +24,16 @@ module MySqlMb
     end
   
     def parse(command, args)
-      optp = optparse(command, args)
-      load_configfile(@options[:config_file]) if @options[:config_file]
+      optparse(command, args)
       list_options if @options[:debug]
-      verify_input(optp, command)
       return @connection, @paths, @options, @databases
     end
     
     private
 
     def list_options
-      puts "Connection:"
-      @connection.each do |key, value|
-        value.gsub!(/./) { |s| "*" } if key == :password
-        puts "\t#{key}: #{value.to_s || 'nil'}"
-      end
-      puts "Paths:"
-      @paths.each {|key, value| puts "\t#{key}: #{value.to_s || 'nil'}" }
-      puts "Options:"
-      @options.each {|key, value| puts "\t#{key}: #{value.to_s || 'nil'}" }
+      @options.each {|key, value| puts "#{key}: #{value.to_s || 'nil'}" }
       exit
-    end
-
-    def verify_input(optp, command)
-      if missing_credentials? command
-        puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
-        puts
-        puts optp.help
-        return false 
-      end
-
-      unless @options[:version] || CMD.include?(command)
-        puts "Please provide a valid action argument:"
-        puts
-        puts optp.help
-        return false
-      end
     end
 
     def load_configfile(file)
@@ -69,7 +43,7 @@ module MySqlMb
          if [:host, :user, :password].include? key
            @connection[key] = value
          # path values
-         elsif [:backup, :mysql, :mysqldump].include? key
+         elsif [:backup, :mysql, :mysqldump]
            @paths[key] = value
          else
            @options[key] = value
@@ -136,7 +110,7 @@ module MySqlMb
       end
 
       @options[:restore_offset] = 1
-      opts.on( '-t', '--time-offset DAYS', Integer, 'How old are the backups to restore (default: 1 (yesterday))' ) do |days|
+      opts.on( '-o', '--restore-offset DAYS', Integer, 'How old are the backups to restore (default: 1 day)' ) do |days|
         @options[:restore_offset] = days
       end
 
@@ -170,17 +144,17 @@ module MySqlMb
         @options[:date_format] = format
       end
       
-      @options[:config_file] = nil
+      @config_file = nil
       opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',                                          'see config/config.rb.orig for an example' ) do |file|
+        @config_file = file
         unless File.exists?(file)
           puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
           exit
         end
-        @options[:config_file] = file
       end
       
       @options[:verbose] = false
-        opts.on( '--verbose', 'Output more information' ) do
+        opts.on( '-V', '--verbose', 'Output more information' ) do
         @options[:verbose] = true
       end
 
@@ -197,8 +171,7 @@ module MySqlMb
         return false
       end
 
-      opts.on_tail( '--version', "Show version" ) do
-          @options[:lala] = 'lulu'
+      opts.on_tail('-v', '--version', "Show version") do
           puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
           puts
           puts "Copyright (C) 2009 Nik Wolfgramm"
@@ -210,7 +183,20 @@ module MySqlMb
       end
       
       optparse.parse!(args)
-      return optparse  
+      
+      if missing_credentials? command
+        puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
+        puts
+        puts optparse.help
+        return false 
+      end
+
+      unless @options[:version] || CMD.include?(command)
+        puts "Please provide a valid action argument:"
+        puts
+        puts optparse.help
+        return false
+      end
     end
 
   end # class

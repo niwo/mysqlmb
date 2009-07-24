@@ -141,7 +141,7 @@ class MySQLMaint
     when "mysql"
       databases = %x[echo "show databases" | mysql #{@credentials} | grep -v Database].split("\n")
       if $? != 0
-        @logger.add(Logger::ERROR, "mysql \"show databases\" failed: return value #{$?}, user: #{user}, using password: #{!password.empty?}")
+        @logger.add(Logger::ERROR, "mysql \"show databases\" failed: return value #{$?}, user: #{@user}, using password: #{!@password.empty?}")
         exit
       end
       return databases
