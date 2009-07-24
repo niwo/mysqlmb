@@ -17,9 +17,9 @@ module MySqlMb
     NO_CREDENTIALS = {'list' => {:list_type => :backup}}
  
     def initialize
-      @connection = {}
-      @paths = {}
-      @options = {}
+      @connection  = {}
+      @paths       = {}
+      @options     = {}
     end
   
     def parse(command, args)
@@ -27,7 +27,7 @@ module MySqlMb
       set_defaults()
       list_options if @options[:debug]
       verify_input(optp, command)
-      return @connection, @paths, @options, @databases
+      return @connection, @paths, @options
     end
     
     private
@@ -68,7 +68,7 @@ module MySqlMb
          if [:host, :user, :password].include? key
            force ? @connection[key] = value : @connection[key] ||= value
          # path values
-         elsif [:backup, :mysql, :mysqldump].include? key
+         elsif [:backup, :mysql, :mysqldump, :mysqlcheck].include? key
            force ? @paths[key] = value : @paths[key] ||= value
          else
            force ? @options[key] = value : @options[key] ||= value
@@ -77,9 +77,6 @@ module MySqlMb
     end
     
     def set_defaults
-      # default databases (all)
-      @databases                ||= []
-      
       # default connetion
       @connection[:user]        ||= 'backup'
       @connection[:password]    ||= ''
@@ -92,6 +89,7 @@ module MySqlMb
       @paths[:mysqlcheck]       ||= '/usr/bin/mysqlcheck'
       
       # default options
+      @options[:databases]      ||= []
       @options[:optimize]       ||= true
       @options[:retention]      ||= 30
       @options[:restore_offset] ||= 1
@@ -100,7 +98,7 @@ module MySqlMb
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
       @options[:debug]          ||= false
-      @options[:verbose] = false
+      @options[:verbose]        ||= false
     end
  
     def missing_credentials?(command)
@@ -145,7 +143,7 @@ module MySqlMb
       opts.on( '-d', '--databases db1,db2,db3', Array, 'Define which databases to backup (default: all)',
                                                        'Syntax: database1,database2',
                                                        'Keywords: all, user, system') do |db|
-        @databases = db
+        @options[:databases] = db
       end
  
       opts.on( '--[no-]optimize', 'Disable database optimization' ) do |o|
@@ -193,7 +191,7 @@ module MySqlMb
         load_configfile(file)
       end
       
-      opts.on( '--verbose', 'Output more information' ) do
+      opts.on( '-v', '--verbose', 'Output more information' ) do
         @options[:verbose] = true
       end
  
@@ -210,7 +208,6 @@ module MySqlMb
       end
  
       opts.on_tail( '--version', "Show version" ) do
-          @options[:lala] = 'lulu'
           puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
           puts
           puts "Copyright (C) 2009 Nik Wolfgramm"

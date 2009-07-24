@@ -38,7 +38,7 @@ class MySQLMaint
         error_count += 1
         message = "ERROR: Backup failed on database: #{db}"
         puts message if @verbose
-        @logger.add(Logger::ERROR, "#{message}, user: #{user}, using password: #{password.empty?}")
+        @logger.add(Logger::ERROR, "#{message}, user: #{@user}, using password: #{@password.empty?}")
       end
     end
     msg = "#{databases.size - error_count} from #{databases.size} databases backed up successfully"

@@ -13,7 +13,7 @@ module MySqlMb
     
     def run(command)
       load_options(command)
-
+      
       start_time = Time.now
       mail_message = mail_header(command, start_time)
       mysqlmaint = MySQLMaint.new(@connection, @paths, @options)
@@ -22,9 +22,9 @@ module MySqlMb
       
       case command
       when "restore"
-        mysqlmaint.db_restore(@databases, @options[:restore_offset])
+        mysqlmaint.db_restore(@options[:databases], @options[:restore_offset])
       when "backup"
-        maintenance_error, message = mysqlmaint.db_backup(@databases)
+        maintenance_error, message = mysqlmaint.db_backup(@options[:databases])
         if maintenance_error == 0
           mail_message += "All databases successfully backed up: #{message} \n"
         else
@@ -49,11 +49,11 @@ module MySqlMb
         mail_message += "All databases have been optimized with mysqlcheck\n"
       when "list"
         if @options[:list_type] == :mysql
-          dbs = mysqlmaint.get_databases( @databases, "mysql" )
+          dbs = mysqlmaint.get_databases( @options[:databases], "mysql" )
           puts "Found #{dbs.size} database(s):"
           dbs.each { |db| puts db }
         else
-          dbs = mysqlmaint.get_databases( @databases, "backup", -(@options[:restore_offset]) )
+          dbs = mysqlmaint.get_databases( @options[:databases], "backup", -(@options[:restore_offset]) )
           puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(-(@options[:restore_offset]))}:"
           dbs.each { |db| puts db }
         end
@@ -77,7 +77,7 @@ module MySqlMb
     private 
     
     def load_options(command)
-      @connection, @paths, @options, @databases = Parser.new.parse(command, @args)
+      @connection, @paths, @options = Parser.new.parse(command, @args)
     end
   
     def mail_header(command, start_time)
