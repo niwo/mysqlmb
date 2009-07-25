@@ -90,15 +90,15 @@ module MySqlMb
       
       # default options
       @options[:databases]      ||= []
-      @options[:optimize]       ||= true
       @options[:retention]      ||= 30
       @options[:restore_offset] ||= 1
       @options[:mail_to]        ||= ''
-      @options[:mail]           ||= false
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
-      @options[:debug]          ||= false
-      @options[:verbose]        ||= false
+      @options[:debug]            = false  if @options[:debug].nil?
+      @options[:verbose]          = false  if @options[:verbose].nil?
+      @options[:optimize]         = true  if @options[:optimize].nil?
+      @options[:mail]             = false  if @options[:mail].nil?
     end
  
     def missing_credentials?(command)

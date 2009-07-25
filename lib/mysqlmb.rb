@@ -31,7 +31,7 @@ class MySQLMaint
       %x[#{@paths[:mysqldump]} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
       if $? == 0
         %x[mv #{dump_file}.tmp #{dump_file}; bzip2 -f #{dump_file}]
-        message = "[--] Successfully backed up database: #{db}"
+        message = "[OK] Successfully backed up database: #{db}"
         puts message if @verbose
         @logger.add(Logger::INFO, message)
       else
@@ -115,7 +115,7 @@ class MySQLMaint
 
   def backup_size
     backup_size =%x[du -hsc #{@backup_path}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
-    puts("[!!] Compressed backup file size: #{backup_size}") if @verbose
+    puts("[--] Compressed backup file size: #{backup_size}") if @verbose
     backup_size
   end
 
