@@ -99,7 +99,7 @@ class MySQLMaint
   end
 
   def delete_old_backups(retention_time=30)
-    msg = %x[find #{@backup_path} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
+    msg = %x[find #{@paths[:backup]} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
     if @verbose
       msg.empty? ? puts("[--] No backup files deleted") : puts("[--] #{msg}")
     end
@@ -114,7 +114,7 @@ class MySQLMaint
   end
 
   def backup_size
-    backup_size =%x[du -hsc #{@backup_path}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
+    backup_size =%x[du -hsc #{@paths[:backup]}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
     puts("[--] Compressed backup file size: #{backup_size}") if @verbose
     backup_size
   end
@@ -148,12 +148,12 @@ class MySQLMaint
       return databases
     when "backup"
       databases = []
-      backups = %x[find #{@backup_path} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
+      backups = %x[find #{@paths[:backup]} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
       if $? != 0
         puts $?
         exit
       end
-      backups.each { |file| databases << file.match(/#{@backup_path}\/#{back_date(time)}-(.+).bz2$/)[1] }
+      backups.each { |file| databases << file.match(/#{@paths[:backup]}\/#{back_date(time)}-(.+).bz2$/)[1] }
       return databases
     end
   end
