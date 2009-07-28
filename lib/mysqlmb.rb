@@ -2,6 +2,7 @@ module MySqlMb
 
 class MySQLMaint 
   require "logger"
+  require "find"
   
   # MySQL system databases
   SYSTEM_DATABASES = %w[mysql information_schema]
@@ -74,8 +75,9 @@ class MySQLMaint
 
      dump_file = "#{@backup_path}/#{date}-#{db}"
      
-     # decompress dump file
-     %x[bunzip2 -k #{dump_file}.bz2]
+     # decompress dump file if the file exists
+     %x[bunzip2 -k #{dump_file}.bz2] if File.exist?("#{dump_file}.bz2")
+
      # restore database
      %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{db} < #{dump_file}]
      if $? != 0
@@ -98,12 +100,28 @@ class MySQLMaint
     return error_count, msg
   end
 
-  def delete_old_backups(retention_time=30)
-    msg = %x[find #{@paths[:backup]} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
-    if @verbose
-      msg.empty? ? puts("[--] No backup files deleted") : puts("[--] #{msg}")
+  def delete_old_backups(retention = 30)
+    filelist = []
+    file_filter = ".*\.bz2"
+ 
+   # retention in days: date back from now
+    retention_date = Time.now - (retention * 3600 * 24)
+    puts "[--] Delete backups older than #{retention} days:" if @verbose
+    begin
+      Find.find(@paths[:backup]) do  |f|
+        if File.stat(f).ctime < retention_date
+          if File.basename(f) =~ /#{file_filter}/ 
+	    filelist << File.basename(f)
+            puts "[--] remove #{filelist.last}" if @verbose
+            File.delete(f)
+          end
+        end
+      end
+    rescue StandardError => e
+      abort "[!!] Error deleting old backups :" + e.message
     end
-    msg
+    puts "[--] no backups removed" if @verbose && filelist.empty?
+    filelist
   end
 
   def chkdb()
@@ -113,10 +131,20 @@ class MySQLMaint
     puts check if @verbose
   end
 
-  def backup_size
-    backup_size =%x[du -hsc #{@paths[:backup]}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
-    puts("[--] Compressed backup file size: #{backup_size}") if @verbose
-    backup_size
+  def backup_size(time = Time.at(0))
+    size = 0.0
+    file_filter = ".*\.bz2$"
+    abort "Abort: input value must be an instance of Time" unless time.instance_of?(Time)
+    begin
+      Find.find("/var/backups/mysql") do  |f|
+        if File.stat(f).ctime > time && File.basename(f) =~ /#{file_filter}/
+          size += File.stat(f).size
+        end
+      end
+    rescue RegexpError => e
+      abort "Invalid filter \"#{file_filter}\" in method backup_size."  
+    end
+    size
   end
 
   def get_databases(databases = [], source = "mysql", adjustment = 0) 

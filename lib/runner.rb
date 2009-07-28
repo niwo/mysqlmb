@@ -31,13 +31,13 @@ module MySqlMb
           mail_message += "Backup of MySQL failed: #{message} \n"
         end
         # calculate size of all backups
-        backup_size = mysqlmaint.backup_size
+        backup_size = mysqlmaint.backup_size(start_time)
         mail_message += "Backup file size after compression: #{backup_size} \n"
   
         if maintenance_error == 0 && @options[:retention] > 0
           cleanup = mysqlmaint.delete_old_backups(@options[:retention])
-          cleanup = "no backups deleted" if cleanup.empty?
-          mail_message += "Old backups removed: \n#{cleanup}\n"
+          cleanup = "no backups deleted \n" if cleanup.empty?
+          mail_message += "Old backups removed: \n#{cleanup.each {|file| '  ' + file + '\n'}}"
         end
   
         if @options[:optimize]
