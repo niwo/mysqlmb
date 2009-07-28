@@ -27,7 +27,7 @@ class MySQLMaint
     databases = get_databases(databases)
 
     databases.each do |db|
-      dump_file = "#{@backup_path}/#{back_date()}-#{db}"
+      dump_file = "#{@paths[:backup]}/#{back_date()}-#{db}"
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
       %x[#{@paths[:mysqldump]} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
       if $? == 0
@@ -73,7 +73,7 @@ class MySQLMaint
        end
      end
 
-     dump_file = "#{@backup_path}/#{date}-#{db}"
+     dump_file = "#{@paths[:backup]}/#{date}-#{db}"
      
      # decompress dump file if the file exists
      %x[bunzip2 -k #{dump_file}.bz2] if File.exist?("#{dump_file}.bz2")
