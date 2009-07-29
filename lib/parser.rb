@@ -3,18 +3,17 @@
 require 'optparse'
 require 'date'
 require 'yaml'
-require 'lib/helpers'
-include SimpleMail
-include DateFormat
   
 module MySqlMb
  
   class Parser
     # all commands
-    CMD = %w[backup restore optimize list]
+    CMD = %w[backup restore optimize cleanup list]
  
     # commands which require no MySQL user/password
-    NO_CREDENTIALS = {'list' => {:list_type => :backup}}
+    NO_CREDENTIALS = { 'list' => {:list_type => :backup},
+                       'cleanup' => {}
+                     }
  
     def initialize
       @connection  = {}
@@ -119,7 +118,7 @@ module MySqlMb
       # of the help screen.
       opts.banner = "Usage: mysqlmb COMMAND [options]"
       opts.program_name = "MySQL Maintenance Buddy"
-      opts.version = "1.2"
+      opts.version = "1.3"
       opts.summary_width = 30
       opts.summary_indent = "  "
       opts.separator ""
@@ -127,6 +126,7 @@ module MySqlMb
       opts.separator "  backup \t\t\t Backup databases"
       opts.separator "  restore \t\t\t Restore databases"
       opts.separator "  optimize \t\t\t Optimize databases"
+      opts.separator "  cleanup \t\t\t Cleanup old database backups"
       opts.separator "  list \t\t\t\t List databases or backups"
       opts.separator ""
       opts.separator "Options:"
@@ -195,6 +195,10 @@ module MySqlMb
         @options[:verbose] = true
       end
  
+      opts.on( '-f', '--force', 'Force backup file deletion' ) do
+        @options[:force] = true
+      end
+
       opts.on( '--debug', 'Debugging mode: show arguments passed' ) do
         @options[:verbose] = true
         @options[:debug] = true

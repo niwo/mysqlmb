@@ -100,20 +100,21 @@ class MySQLMaint
     return error_count, msg
   end
 
-  def delete_old_backups(retention = 30)
+  def delete_old_backups(retention = 30, force = false)
     filelist = []
     file_filter = ".*\.bz2"
  
    # retention in days: date back from now
     retention_date = Time.now - (retention * 3600 * 24)
-    puts "[--] Delete backups older than #{retention} days:" if @verbose
+    puts "[--] Delete backups older than #{retention} days:" if @verbose && force
+    puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:" if @verbose && !force
     begin
       Find.find(@paths[:backup]) do  |f|
-        if File.stat(f).ctime < retention_date
+        if File.stat(f).mtime < retention_date
           if File.basename(f) =~ /#{file_filter}/ 
 	    filelist << File.basename(f)
             puts "[--] remove #{filelist.last}" if @verbose
-            File.delete(f)
+            File.delete(f) if force
           end
         end
       end
@@ -165,6 +166,7 @@ class MySQLMaint
   end
 
   private
+
   def all_databases(source = "mysql", time = 0)
     case source
     when "mysql"

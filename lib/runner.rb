@@ -2,6 +2,10 @@
 
 require 'lib/parser'
 require 'lib/mysqlmb'
+require 'lib/helpers'
+include SimpleMail
+include DateFormat
+include FileSize
 
 module MySqlMb
   
@@ -30,12 +34,12 @@ module MySqlMb
         else
           mail_message += "Backup of MySQL failed: #{message} \n"
         end
-        # calculate size of all backups
-        backup_size = mysqlmaint.backup_size(start_time)
+        # calculate size of all backups just made
+        backup_size = FileSize.fsize(mysqlmaint.backup_size(start_time))
         mail_message += "Backup file size after compression: #{backup_size} \n"
   
         if maintenance_error == 0 && @options[:retention] > 0
-          cleanup = mysqlmaint.delete_old_backups(@options[:retention])
+          cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
           cleanup = "no backups deleted \n" if cleanup.empty?
           mail_message += "Old backups removed: \n#{cleanup.each {|file| '  ' + file + '\n'}}"
         end
@@ -57,6 +61,10 @@ module MySqlMb
           puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(-(@options[:restore_offset]))}:"
           dbs.each { |db| puts db }
         end
+      when "cleanup"
+        cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
+        cleanup = "no backups deleted \n" if cleanup.empty?
+        mail_message += "Old backups removed: \n#{cleanup.each {|file| '  ' + file + '\n'}}"
       end
   
       execution_time = fduration(Time.now - start_time)
