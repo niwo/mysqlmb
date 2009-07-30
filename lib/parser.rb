@@ -96,8 +96,9 @@ module MySqlMb
       @options[:date_format]    ||= "%Y-%m-%d"
       @options[:debug]            = false  if @options[:debug].nil?
       @options[:verbose]          = false  if @options[:verbose].nil?
-      @options[:optimize]         = true  if @options[:optimize].nil?
+      @options[:optimize]         = false  if @options[:optimize].nil?
       @options[:mail]             = false  if @options[:mail].nil?
+      @options[:force]            = false  if @options[:force].nil?
     end
  
     def missing_credentials?(command)

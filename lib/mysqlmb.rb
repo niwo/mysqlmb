@@ -21,6 +21,7 @@ class MySQLMaint
   end
 
   def db_backup(databases=[])
+    puts "[--] Start datbase backup..." if @verbose
     error_count = 0
 
     # check for emptiness or keyword within db-Array
@@ -48,6 +49,7 @@ class MySQLMaint
   end
 
   def db_restore(databases, days = 1)
+    puts "Start restoring databases..." if @verbose
     error_count = 0
     all_dbs = all_databases()
     
@@ -63,7 +65,7 @@ class MySQLMaint
        if $? != 0
          error_count += 1
          message = "[!!] can't create database #{db} message: #{$?}"
-         @logger.add(Logger::ERROR, message + " , user: #{user}, using password: #{!password.empty?}")
+         @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
          puts message if @verbose
          next
        else 
@@ -83,7 +85,7 @@ class MySQLMaint
      if $? != 0
        error_count += 1
        message = "[!!] can't restore database #{db} message: #{$?}"
-       @logger.add(Logger::ERROR, message + " , user: #{user}, using password: #{!password.empty?}")
+       @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
        puts message if @verbose
        next
      else
@@ -92,7 +94,8 @@ class MySQLMaint
      end
 
      # delete decompressed backup file
-     %x[rm -f #{dump_file}]
+     File.delete(dump_file)
+     #%x[rm -f #{dump_file}]
     end
 
     msg = "#{databases.size - error_count} from #{databases.size} databases restored successfully"
