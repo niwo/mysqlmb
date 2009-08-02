@@ -53,7 +53,7 @@ module MySqlMb
           puts "Found #{dbs.size} database(s):"
           dbs.each { |db| puts db }
         else
-          dbs = mysqlmaint.get_databases( @options[:databases], "backup", -(@options[:restore_offset]) )
+          dbs = mysqlmaint.get_databases( @options[:databases], "backup", -(@options[:restore_offset]), true)
           puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(-(@options[:restore_offset]))}:"
           dbs.each { |db| puts db }
         end

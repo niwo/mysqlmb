@@ -119,12 +119,12 @@ class MySQLMaint
     backup_size
   end
 
-  def get_databases(databases = [], source = "mysql", adjustment = 0) 
+  def get_databases(databases = [], source = "mysql", adjustment = 0, fullpath = false) 
     # check for emptiness or keyword within db-Array
     if databases.empty? || databases.include?("all")
-      return all_databases(source, adjustment)
+      return all_databases(source, adjustment, fullpath)
     elsif databases.include?("user")
-      return user_databases(source, adjustment)
+      return user_databases(source, adjustment, fullpath)
     elsif databases.include?("system")
       return system_databases()
     else
@@ -137,7 +137,7 @@ class MySQLMaint
   end
 
   private
-  def all_databases(source = "mysql", time = 0)
+  def all_databases(source = "mysql", time = 0, fullpath = false)
     case source
     when "mysql"
       databases = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials} | grep -v Database].split("\n")
@@ -153,13 +153,17 @@ class MySQLMaint
         puts $?
         exit
       end
-      backups.each { |file| databases << file.match(/#{@backup_path}\/#{back_date(time)}-(.+).bz2$/)[1] }
+      if fullpath
+        databases = backups
+      else
+        backups.each { |file| databases << file.match(/#{@backup_path}\/#{back_date(time)}-(.+).bz2$/)[1] }
+      end
       return databases
     end
   end
 
-  def user_databases(source = "mysql", adjustment = 0)
-    dbs = all_databases(source, adjustment) - system_databases()
+  def user_databases(source = "mysql", adjustment = 0, fullpath = false)
+    dbs = all_databases(source, adjustment, fullpath) - system_databases()
     dbs
   end
 
