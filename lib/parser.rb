@@ -82,7 +82,7 @@ module MySqlMb
       
       # default paths
       @paths[:logfile]          ||= (APP_PATH + "/log/mysqlmb.log")
-      @paths[:backup]           ||=  File.expand_path(APP_PATH, '/backups')
+      @paths[:backup]           ||=  File.expand_path(APP_PATH + '/backups')
       @paths[:mysql]            ||= '/usr/bin/mysql'
       @paths[:mysqldump]        ||= '/usr/bin/mysqldump'
       @paths[:mysqlcheck]       ||= '/usr/bin/mysqlcheck'

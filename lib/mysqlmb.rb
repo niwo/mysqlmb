@@ -140,7 +140,7 @@ class MySQLMaint
     file_filter = ".*\.bz2$"
     abort "Abort: input value must be an instance of Time" unless time.instance_of?(Time)
     begin
-      Find.find("/var/backups/mysql") do  |f|
+      Find.find(@paths[:backup]) do  |f|
         if File.stat(f).ctime > time && File.basename(f) =~ /#{file_filter}/
           size += File.stat(f).size
         end
