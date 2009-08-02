@@ -2,6 +2,7 @@ module MySqlMb
 
 class MySQLMaint 
   require "logger"
+  require "find"
   
   # MySQL system databases
   SYSTEM_DATABASES = %w[mysql information_schema]
@@ -20,13 +21,14 @@ class MySQLMaint
   end
 
   def db_backup(databases=[])
+    puts "[--] Start datbase backup..." if @verbose
     error_count = 0
 
     # check for emptiness or keyword within db-Array
     databases = get_databases(databases)
 
     databases.each do |db|
-      dump_file = "#{@backup_path}/#{back_date()}-#{db}"
+      dump_file = "#{@paths[:backup]}/#{back_date()}-#{db}"
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
       %x[#{@paths[:mysqldump]} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
       if $? == 0
@@ -47,6 +49,7 @@ class MySQLMaint
   end
 
   def db_restore(databases, days = 1)
+    puts "Start restoring databases..." if @verbose
     error_count = 0
     all_dbs = all_databases()
     
@@ -62,7 +65,7 @@ class MySQLMaint
        if $? != 0
          error_count += 1
          message = "[!!] can't create database #{db} message: #{$?}"
-         @logger.add(Logger::ERROR, message + " , user: #{user}, using password: #{!password.empty?}")
+         @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
          puts message if @verbose
          next
        else 
@@ -72,16 +75,17 @@ class MySQLMaint
        end
      end
 
-     dump_file = "#{@backup_path}/#{date}-#{db}"
+     dump_file = "#{@paths[:backup]}/#{date}-#{db}"
      
-     # decompress dump file
-     %x[bunzip2 -k #{dump_file}.bz2]
+     # decompress dump file if the file exists
+     %x[bunzip2 -k #{dump_file}.bz2] if File.exist?("#{dump_file}.bz2")
+
      # restore database
      %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{db} < #{dump_file}]
      if $? != 0
        error_count += 1
        message = "[!!] can't restore database #{db} message: #{$?}"
-       @logger.add(Logger::ERROR, message + " , user: #{user}, using password: #{!password.empty?}")
+       @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
        puts message if @verbose
        next
      else
@@ -90,7 +94,8 @@ class MySQLMaint
      end
 
      # delete decompressed backup file
-     %x[rm -f #{dump_file}]
+     File.delete(dump_file)
+     #%x[rm -f #{dump_file}]
     end
 
     msg = "#{databases.size - error_count} from #{databases.size} databases restored successfully"
@@ -98,12 +103,29 @@ class MySQLMaint
     return error_count, msg
   end
 
-  def delete_old_backups(retention_time=30)
-    msg = %x[find #{@backup_path} -maxdepth 1 -type f -mtime +#{retention_time} -exec rm -vf {} \\;]
-    if @verbose
-      msg.empty? ? puts("[--] No backup files deleted") : puts("[--] #{msg}")
+  def delete_old_backups(retention = 30, force = false)
+    filelist = []
+    file_filter = ".*\.bz2"
+ 
+   # retention in days: date back from now
+    retention_date = Time.now - (retention * 3600 * 24)
+    puts "[--] Delete backups older than #{retention} days:" if @verbose && force
+    puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:" if @verbose && !force
+    begin
+      Find.find(@paths[:backup]) do  |f|
+        if File.stat(f).mtime < retention_date
+          if File.basename(f) =~ /#{file_filter}/ 
+	    filelist << File.basename(f)
+            puts "[--] remove #{filelist.last}" if @verbose
+            File.delete(f) if force
+          end
+        end
+      end
+    rescue StandardError => e
+      abort "[!!] Error deleting old backups :" + e.message
     end
-    msg
+    puts "[--] no backups removed" if @verbose && filelist.empty?
+    filelist
   end
 
   def chkdb()
@@ -113,10 +135,20 @@ class MySQLMaint
     puts check if @verbose
   end
 
-  def backup_size
-    backup_size =%x[du -hsc #{@backup_path}/#{back_date}-*.bz2 | awk '{print $1}' | tail -n 1]
-    puts("[--] Compressed backup file size: #{backup_size}") if @verbose
-    backup_size
+  def backup_size(time = Time.at(0))
+    size = 0.0
+    file_filter = ".*\.bz2$"
+    abort "Abort: input value must be an instance of Time" unless time.instance_of?(Time)
+    begin
+      Find.find("/var/backups/mysql") do  |f|
+        if File.stat(f).ctime > time && File.basename(f) =~ /#{file_filter}/
+          size += File.stat(f).size
+        end
+      end
+    rescue RegexpError => e
+      abort "Invalid filter \"#{file_filter}\" in method backup_size."  
+    end
+    size
   end
 
   def get_databases(databases = [], source = "mysql", adjustment = 0, fullpath = false) 
@@ -148,7 +180,7 @@ class MySQLMaint
       return databases
     when "backup"
       databases = []
-      backups = %x[find #{@backup_path} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
+      backups = %x[find #{@paths[:backup]} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
       if $? != 0
         puts $?
         exit

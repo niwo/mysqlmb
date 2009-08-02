@@ -27,3 +27,15 @@ module DateFormat
     sprintf("%02d:%02d:%02d", hours, minutes, seconds)
  end
 end
+
+module FileSize
+  def fsize(size)
+    entities = %w[Bytes KB MB GB TB]
+    entity = entities.first
+    while size > 1024 && entity != entities.last
+       size = size / 1024
+       entity = entities[entities.index(entity) + 1]
+    end 
+    sprintf("%.1f %s", size, entity)
+  end
+end
