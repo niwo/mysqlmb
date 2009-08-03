@@ -6,6 +6,8 @@ module SimpleMail
     msg = <<END_OF_MESSAGE
 From: #{from_alias} <#{from}>
 To: #{to_alias} <#{to}>
+MIME-Version: 1.0
+Content-type: text/plain
 Subject: #{subject}
 
 #{message}

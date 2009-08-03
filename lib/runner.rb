@@ -40,8 +40,7 @@ module MySqlMb
   
         if maintenance_error == 0 && @options[:retention] > 0
           cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
-          cleanup = "no backups deleted \n" if cleanup.empty?
-          mail_message += "Old backups removed: \n#{cleanup.each {|file| '  ' + file + '\n'}}"
+          mail_message += cleanup_message(cleanup)
         end
   
         if @options[:optimize]
@@ -63,8 +62,7 @@ module MySqlMb
         end
       when "cleanup"
         cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
-        cleanup = "no backups deleted \n" if cleanup.empty?
-        mail_message += "Old backups removed: \n#{cleanup.each {|file| '  ' + file + '\n'}}"
+        mail_message += cleanup_message(cleanup)
       end
   
       execution_time = fduration(Time.now - start_time)
@@ -86,6 +84,16 @@ module MySqlMb
     
     def load_options(command)
       @connection, @paths, @options = Parser.new.parse(command, @args)
+    end
+
+    def cleanup_message(cleanup)
+      message = "Old backups removed: \n"
+      message += "no backups deleted \n" if (cleanup.empty? || !@options[:force])
+      message += "Use option \"force\" to delete backups \n" if !@options[:force]
+      cleanup.each do |file|
+        message += " #{file}\n"
+      end
+      message
     end
   
     def mail_header(command, start_time)
