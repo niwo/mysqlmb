@@ -8,14 +8,21 @@ class MySQLMaint
   SYSTEM_DATABASES = %w[mysql information_schema]
   
   def initialize(connection, paths, params)
+    # set connection parameters
     @user = connection[:user]
     @password = connection[:password]
     @host = connection[:host]
     @credentials = "--user=#{@user} --password=#{@password}"
+    
+    # set params or default 
     @date_format = params[:date_format] || "%Y-%m-%d"
     @verbose = params[:verbose] || false 
+    
+    # initialize log file
     logfile = File.open(paths[:logfile], File::WRONLY | File::APPEND | File::CREAT)
     @logger = Logger.new(logfile, 10, 1024000)
+
+    # set all paths
     @paths = {}
     paths.each { |key, value| @paths[key] = rm_slash(value) }
   end
@@ -105,20 +112,17 @@ class MySQLMaint
 
   def delete_old_backups(retention = 30, force = false)
     filelist = []
-    file_filter = ".*\.bz2"
  
    # retention in days: date back from now
     retention_date = Time.now - (retention * 3600 * 24)
     puts "[--] Delete backups older than #{retention} days:" if @verbose && force
     puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:" if @verbose && !force
     begin
-      Find.find(@paths[:backup]) do  |f|
+      get_backup_files(Time.at(0)).each do |f|
         if File.stat(f).mtime < retention_date
-          if File.basename(f) =~ /#{file_filter}/ 
-	    filelist << File.basename(f)
-            puts "[--] remove #{filelist.last}" if @verbose
-            File.delete(f) if force
-          end
+	  filelist << File.basename(f)
+          puts "[--] remove #{filelist.last}" if @verbose
+          File.delete(f) if force
         end
       end
     rescue StandardError => e
@@ -137,28 +141,25 @@ class MySQLMaint
 
   def backup_size(time = Time.at(0))
     size = 0.0
-    file_filter = ".*\.bz2$"
-    abort "Abort: input value must be an instance of Time" unless time.instance_of?(Time)
-    begin
-      Find.find(@paths[:backup]) do  |f|
-        if File.stat(f).ctime > time && File.basename(f) =~ /#{file_filter}/
-          size += File.stat(f).size
-        end
-      end
-    rescue RegexpError => e
-      abort "Invalid filter \"#{file_filter}\" in method backup_size."  
+    get_backup_files(time).each do |f|
+      size += File.stat(f).size
     end
     size
   end
 
-  def get_databases(databases = [], source = "mysql", adjustment = 0, fullpath = false) 
+  def get_databases(databases = [], source = :mysql, options = {}) 
     # check for emptiness or keyword within db-Array
-    if databases.empty? || databases.include?("all")
-      return all_databases(source, adjustment, fullpath)
-    elsif databases.include?("user")
-      return user_databases(source, adjustment, fullpath)
-    elsif databases.include?("system")
-      return system_databases()
+    type = case databases[0]
+      when "all" || nil then :all
+      when "user" then :user
+      when "system" then :system
+      else return databases
+    end
+    
+    if source == :mysql
+      return databases({:type => type})
+    elsif source == :backup
+      return backups(options[:day], {:type => type})
     else
       return databases
     end
@@ -169,38 +170,53 @@ class MySQLMaint
   end
 
   private
-  def all_databases(source = "mysql", time = 0, fullpath = false)
-    case source
-    when "mysql"
-      databases = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials} | grep -v Database].split("\n")
-      if $? != 0
-        @logger.add(Logger::ERROR, "mysql \"show databases\" failed: return value #{$?}, user: #{@user}, using password: #{!@password.empty?}")
-        exit
+
+  def get_backup_files(time_limit, options = {})
+    abort "Abort: input value must be an instance of Time" unless time_limit.instance_of?(Time)
+    file_filter = ".*\.bz2$"
+    files = []
+    begin
+      Find.find(@paths[:backup]) do  |f|
+        if File.stat(f).ctime > time_limit && File.basename(f) =~ /#{file_filter}/
+          files << f
+        end
       end
-      return databases
-    when "backup"
-      databases = []
-      backups = %x[find #{@paths[:backup]} -maxdepth 1 -type f -name #{back_date(time)}*.bz2].split("\n")
-      if $? != 0
-        puts $?
-        exit
-      end
-      if fullpath
-        databases = backups
-      else
-        backups.each { |file| databases << file.match(/#{@backup_path}\/#{back_date(time)}-(.+).bz2$/)[1] }
-      end
-      return databases
+    rescue RegexpError => e
+      abort "Invalid filter \"#{file_filter}\" in get_backup_files."
     end
+    files
   end
 
-  def user_databases(source = "mysql", adjustment = 0, fullpath = false)
-    dbs = all_databases(source, adjustment, fullpath) - system_databases()
-    dbs
+  def databases(options = {})
+    dbs = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials} | grep -v Database].split("\n")
+    if $? != 0
+      error = "mysql \"show databases\" failed: return value #{$?}, user: #{@user}, using password: #{!@password.empty?}"
+      @logger.add(Logger::ERROR, error)
+      abort error
+    end
+    database_filter(dbs, options[:type])
   end
 
-  def system_databases
-    SYSTEM_DATABASES
+  def backups(day = 0, options = {})
+    time_limit = Time.at(0) #Time.now - (time * 3600 * 24)
+    extension = "\.bz2"
+    databases = []
+    get_backup_files(time_limit) do |f|
+      puts databases << File.basename(f).match(/#{back_date(day)}-(.+)#{extension}$/)[1]
+    end
+    database_filter(databases, options[:type])
+  end
+
+  def database_filter(databases, type = :all)
+    case type
+    when :all
+      return databases
+    when :system
+      return databases & SYSTEM_DATABASES
+    when :user
+      return databases - SYSTEM_DATABASES
+    end
+    databases
   end
 
   # removes trailing slashed from path

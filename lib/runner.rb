@@ -52,12 +52,13 @@ module MySqlMb
         mail_message += "All databases have been optimized with mysqlcheck\n"
       when "list"
         if @options[:list_type] == :mysql
-          dbs = mysqlmaint.get_databases( @options[:databases], "mysql" )
+          dbs = mysqlmaint.get_databases( @options[:databases], :mysql)
           puts "Found #{dbs.size} database(s):"
           dbs.each { |db| puts db }
         else
-          dbs = mysqlmaint.get_databases( @options[:databases], "backup", -(@options[:restore_offset]), true)
-          puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(-(@options[:restore_offset]))}:"
+          backup_day =  -(@options[:restore_offset])
+          dbs = mysqlmaint.get_databases( @options[:databases], :backup, {:day => backup_day})
+          puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(backup_day)}:"
           dbs.each { |db| puts db }
         end
       when "cleanup"
