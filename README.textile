@@ -11,6 +11,7 @@ h1. Features
 # restore databases from backups
 * optimize database tables using mysqlcheck
 * delete old database backups based on retention time
+* show current databases and backups
 * collect some maintenance stats such as duration of maitenance and number of db's backed up
 * send a maintenance summary by email
 * log actions to logfile
@@ -29,7 +30,7 @@ h1. Requirements
 List of dependencies:
 * Ruby
 * MySQL tools (mysql, mysqldump, mysqlcheck)
-* bash with some standard utilities (du, awk, bzip2)
+* command line with some standard utilities (echo, bzip2)
 
 h1. Installation
 

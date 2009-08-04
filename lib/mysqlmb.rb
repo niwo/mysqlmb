@@ -3,6 +3,7 @@ module MySqlMb
 class MySQLMaint 
   require "logger"
   require "find"
+  require "lib/backup"
   
   # MySQL system databases
   SYSTEM_DATABASES = %w[mysql information_schema]
@@ -39,7 +40,8 @@ class MySQLMaint
       @logger.add(Logger::INFO, "Backing up database #{db} ...")
       %x[#{@paths[:mysqldump]} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
       if $? == 0
-        %x[mv #{dump_file}.tmp #{dump_file}; bzip2 -f #{dump_file}]
+        File.rename("#{dump_file}.tmp", dump_file)
+        %x[bzip2 -f #{dump_file}]
         message = "[OK] Successfully backed up database: #{db}"
         puts message if @verbose
         @logger.add(Logger::INFO, message)
@@ -55,15 +57,15 @@ class MySQLMaint
     return error_count, msg
   end
 
-  def db_restore(databases, days = 1)
+  def db_restore(databases, day = -1)
     puts "Start restoring databases..." if @verbose
     error_count = 0
     all_dbs = all_databases()
     
     # check for emptiness or keyword within db-Array
-    databases = get_databases(databases, "backup", -(days))
+    databases = get_databases(databases, :backup, {:day => day})
     
-    date = back_date(-(days))
+    date = back_date(day)
 
     databases.each do |db|
      # make sure the database exists
@@ -100,9 +102,8 @@ class MySQLMaint
        puts message if @verbose
      end
 
-     # delete decompressed backup file
-     File.delete(dump_file)
-     #%x[rm -f #{dump_file}]
+      # delete decompressed backup file
+      File.delete(dump_file)
     end
 
     msg = "#{databases.size - error_count} from #{databases.size} databases restored successfully"
@@ -113,10 +114,17 @@ class MySQLMaint
   def delete_old_backups(retention = 30, force = false)
     filelist = []
  
-   # retention in days: date back from now
+    # retention in days: date back from now
     retention_date = Time.now - (retention * 3600 * 24)
-    puts "[--] Delete backups older than #{retention} days:" if @verbose && force
-    puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:" if @verbose && !force
+
+    if @verbose
+      if force
+        puts "[--] Delete backups older than #{retention} days:"
+      else
+        puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:"
+      end
+    end
+
     begin
       get_backup_files(Time.at(0)).each do |f|
         if File.stat(f).mtime < retention_date
@@ -128,7 +136,7 @@ class MySQLMaint
     rescue StandardError => e
       abort "[!!] Error deleting old backups :" + e.message
     end
-    puts "[--] no backups removed" if @verbose && filelist.empty?
+    puts "[--] No backups removed" if @verbose && filelist.empty?
     filelist
   end
 
@@ -153,12 +161,13 @@ class MySQLMaint
       when "all" || nil then :all
       when "user" then :user
       when "system" then :system
-      else return databases
     end
     
     if source == :mysql
+      return database_filter(databases, type) unless type
       return databases({:type => type})
     elsif source == :backup
+      return database_filter(databases, type, {:type => :backup, :day => options[:day]}) unless type
       return backups(options[:day], {:type => type})
     else
       return databases
@@ -166,17 +175,17 @@ class MySQLMaint
   end
   
   def back_date(adjustment = 0)
-    (DateTime::now + (adjustment)).strftime(@date_format)
+    (DateTime::now + adjustment).strftime(@date_format)
   end
 
   private
 
   def get_backup_files(time_limit, options = {})
     abort "Abort: input value must be an instance of Time" unless time_limit.instance_of?(Time)
-    file_filter = ".*\.bz2$"
+    file_filter = options[:file_filter] || ".*\.bz2$"
     files = []
     begin
-      Find.find(@paths[:backup]) do  |f|
+      Find.find(@paths[:backup]) do |f|
         if File.stat(f).ctime > time_limit && File.basename(f) =~ /#{file_filter}/
           files << f
         end
@@ -184,37 +193,55 @@ class MySQLMaint
     rescue RegexpError => e
       abort "Invalid filter \"#{file_filter}\" in get_backup_files."
     end
-    files
+    files.sort
   end
 
   def databases(options = {})
-    dbs = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials} | grep -v Database].split("\n")
+    # ask mysql for a list of all dbs, remove first entry which reads "Databases"
+    dbs = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials}].split("\n")[1..-1]
+
     if $? != 0
       error = "mysql \"show databases\" failed: return value #{$?}, user: #{@user}, using password: #{!@password.empty?}"
       @logger.add(Logger::ERROR, error)
       abort error
     end
-    database_filter(dbs, options[:type])
+    return dbs.sort if  options[:type] == :all
+    database_filter(dbs.sort, options[:type])
   end
 
   def backups(day = 0, options = {})
-    time_limit = Time.at(0) #Time.now - (time * 3600 * 24)
-    extension = "\.bz2"
-    databases = []
-    get_backup_files(time_limit) do |f|
-      puts databases << File.basename(f).match(/#{back_date(day)}-(.+)#{extension}$/)[1]
+    time_limit = Time.now - ((-(day) + 1) * 3600 * 24)
+    extension = options[:extension] || "\.bz2"
+    backups = []
+    date = back_date(day)
+    get_backup_files(time_limit).each do |f|
+      if File.basename(f).match(/#{date}-.+#{extension}$/)
+        backup = MySqlMb::Backup.new(File.basename(f).match(/#{date}-(.+)#{extension}$/)[1],
+                                     day,
+                                     File.expand_path(f))
+        backups << backup
+      end
     end
-    database_filter(databases, options[:type])
+    return backups.sort if options[:type] == :all
+    database_filter(backups.sort, options[:type], {:day => day})
   end
 
-  def database_filter(databases, type = :all)
+  def database_filter(databases, type, options = {})
+    source = options[:source] || :mysql
     case type
     when :all
-      return databases
+      return databases 
     when :system
       return databases & SYSTEM_DATABASES
     when :user
       return databases - SYSTEM_DATABASES
+    else
+      # handle cases when individual dbs are provided
+      if source == :mysql
+        return databases & databases({:type => :all})
+      elsif source == :backup
+        return databases & backups(options[:day], {:type => :all})
+      end
     end
     databases
   end

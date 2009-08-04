@@ -3,15 +3,16 @@ module SimpleMail
   require 'net/smtp'
 
   def send_email(from, from_alias, to, to_alias, subject, message)
-    msg = <<END_OF_MESSAGE
+    msg = <<-END_OF_MESSAGE
 From: #{from_alias} <#{from}>
 To: #{to_alias} <#{to}>
 MIME-Version: 1.0
 Content-type: text/plain
 Subject: #{subject}
 
-#{message}
-END_OF_MESSAGE
+    END_OF_MESSAGE
+    message.gsub!(/\n/,"\r\n")
+    msg += message
 
     Net::SMTP.start('localhost') do |smtp|
       smtp.send_message msg, from, to

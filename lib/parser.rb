@@ -90,7 +90,7 @@ module MySqlMb
       # default options
       @options[:databases]      ||= []
       @options[:retention]      ||= 30
-      @options[:restore_offset] ||= 1
+      @options[:restore_offset] ||= -1
       @options[:mail_to]        ||= ''
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
@@ -155,7 +155,7 @@ module MySqlMb
         @options[:retention] = days
       end
  
-      opts.on( '-t', '--time-offset DAYS', Integer, 'How old are the backups to restore (default: 1 (yesterday))' ) do |days|
+      opts.on( '-t', '--time-offset DAYS', Integer, 'How old are the backups to restore (default: -1 (yesterday))' ) do |days|
         @options[:restore_offset] = days
       end
  

@@ -30,7 +30,7 @@ module MySqlMb
       when "backup"
         maintenance_error, message = mysqlmaint.db_backup(@options[:databases])
         if maintenance_error == 0
-          mail_message += "All databases successfully backed up: #{message} \n"
+          mail_message += "Successfull backup: #{message} \n"
         else
           mail_message += "Backup of MySQL failed: #{message} \n"
         end
@@ -56,10 +56,10 @@ module MySqlMb
           puts "Found #{dbs.size} database(s):"
           dbs.each { |db| puts db }
         else
-          backup_day =  -(@options[:restore_offset])
+          backup_day =  @options[:restore_offset]
           dbs = mysqlmaint.get_databases( @options[:databases], :backup, {:day => backup_day})
           puts "Found #{dbs.size} database backup(s) for #{mysqlmaint.back_date(backup_day)}:"
-          dbs.each { |db| puts db }
+          dbs.each { |db| puts db.file_name }
         end
       when "cleanup"
         cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
