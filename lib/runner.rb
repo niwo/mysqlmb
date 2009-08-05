@@ -30,13 +30,13 @@ module MySqlMb
       when "backup"
         maintenance_error, message = mysqlmaint.db_backup(@options[:databases])
         if maintenance_error == 0
-          mail_message += "Successfull backup: #{message} \n"
+          mail_message += "Successfull backup: #{message}\n"
         else
-          mail_message += "Backup of MySQL failed: #{message} \n"
+          mail_message += "Backup of MySQL failed: #{message}\n"
         end
         # calculate size of all backups just made
         backup_size = FileSize.fsize(mysqlmaint.backup_size(start_time))
-        mail_message += "Backup file size after compression: #{backup_size} \n"
+        mail_message += "Backup file size after compression: #{backup_size}\n"
   
         if maintenance_error == 0 && @options[:retention] > 0
           cleanup = mysqlmaint.delete_old_backups(@options[:retention], @options[:force])
@@ -67,7 +67,7 @@ module MySqlMb
       end
   
       execution_time = fduration(Time.now - start_time)
-      mail_message += "----------\nMaintenance duration: #{execution_time} \n"
+      mail_message += "----------\nMaintenance duration: #{execution_time}\n"
   
       # send confirmation email
       if @options[:mail] && !@options[:mail_to].empty?
@@ -88,9 +88,9 @@ module MySqlMb
     end
 
     def cleanup_message(cleanup)
-      message = "Old backups removed: \n"
-      message += "no backups deleted \n" if (cleanup.empty? || !@options[:force])
-      message += "Use option \"force\" to delete backups \n" if !@options[:force]
+      message = "Old backups removed:\n"
+      message += "No backups deleted\n" if (cleanup.empty? || !@options[:force])
+      message += "Use option \"force\" to delete backups\n" if !@options[:force]
       cleanup.each do |file|
         message += " #{file}\n"
       end
@@ -98,17 +98,17 @@ module MySqlMb
     end
   
     def mail_header(command, start_time)
-      mail_message = <<END
-----------------------------------------------------------
-                MySQL maintenance on #{@connection[:host]}
-                  #{start_time.strftime("%d-%m-%Y")}
-----------------------------------------------------------
+      mail_message =<<--END
+-------------------------------------------------------------------
+  MySQL maintenance on #{@connection[:host]}
+  #{start_time.strftime("Start Time: %a %d.%m.%Y %H:%M")}
+-------------------------------------------------------------------
 Settings:
-  #{@options[:retention]} days backup retention time
+  Retention time: #{@options[:retention]} days
   Action: #{command}
   Database optimization enabled: #{@options[:optimize]}
 ----------
-END
+      END
     end
   
   end # class

@@ -21,5 +21,17 @@ module MySqlMb
     def file_name
       File.basename(@path)
     end
+
+    def extname
+      File.extname(@path)
+    end
+
+    def dirname
+      File.dirname(@path)
+    end
+
+    def path_without_extension
+      File.join(dirname(), File.basename(@path, extname())) 
+    end
   end
 end

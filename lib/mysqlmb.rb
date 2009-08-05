@@ -60,53 +60,49 @@ module MySqlMb
     def db_restore(databases, day = -1)
       puts "Start restoring databases..." if @verbose
       error_count = 0
-      all_dbs = all_databases()
+      all_dbs = databases({:type => :all})
     
       # check for emptiness or keyword within db-Array
-      databases = get_databases(databases, :backup, {:day => day})
+      backups = get_databases(databases, :backup, {:day => day})
     
-      date = back_date(day)
-
-      databases.each do |db|
+      backups.each do |backup|
        # make sure the database exists
-       unless all_dbs.include?(db)
-         %x[echo CREATE DATABASE \\`#{db}\\` | #{@paths[:mysql]}  #{@credentials}]
+       unless all_dbs.include?(backup.db_name)
+         %x[echo CREATE DATABASE \\`#{backup.db_name}\\` | #{@paths[:mysql]}  #{@credentials}]
          if $? != 0
            error_count += 1
-           message = "[!!] can't create database #{db} message: #{$?}"
+           message = "[!!] can't create database #{backup.db_db} message: #{$?}"
            @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
            puts message if @verbose
            next
          else 
-           message = "[OK] created database #{db}"
+           message = "[OK] created database #{backup.db_name}"
            puts message if @verbose
            @logger.add(Logger::INFO, message)
          end
        end
 
-       dump_file = "#{@paths[:backup]}/#{date}-#{db}"
-     
        # decompress dump file if the file exists
-       %x[bunzip2 -k #{dump_file}.bz2] if File.exist?("#{dump_file}.bz2")
+       %x[bunzip2 -k #{backup.path}] if File.exist?(backup.path)
 
        # restore database
-       %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{db} < #{dump_file}]
+       %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{db} < #{backup.path_without_extension}]
        if $? != 0
          error_count += 1
-         message = "[!!] can't restore database #{db} message: #{$?}"
+         message = "[!!] can't restore database #{backup.db_name} message: #{$?}"
          @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
          puts message if @verbose
          next
        else
-         message = "[OK] restored database #{db}"
+         message = "[OK] restored database #{backup.db_name}"
          puts message if @verbose
        end
 
         # delete decompressed backup file
-        File.delete(dump_file)
+        File.delete(backup.path_without_extension)
       end
 
-      msg = "#{databases.size - error_count} from #{databases.size} databases restored successfully"
+      msg = "#{backups.size - error_count} from #{backups.size} databases restored successfully"
       puts "[--] End of restore: #{msg}" if @verbose
       return error_count, msg
     end
