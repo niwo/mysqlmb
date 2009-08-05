@@ -86,7 +86,7 @@ module MySqlMb
        %x[bunzip2 -k #{backup.path}] if File.exist?(backup.path)
 
        # restore database
-       %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{db} < #{backup.path_without_extension}]
+       %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{backup.db_name} < #{backup.path_without_extension}]
        if $? != 0
          error_count += 1
          message = "[!!] can't restore database #{backup.db_name} message: #{$?}"
