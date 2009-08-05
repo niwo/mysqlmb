@@ -153,9 +153,8 @@ module MySqlMb
 
     def get_databases(databases = [], source = :mysql, options = {}) 
       # check for emptiness or keyword within db-Array
-      puts "db: #{databases[0].class}."
       type = case databases[0]
-        when "all" || nil then :all
+        when "all", nil then :all
         when "user" then :user
         when "system" then :system
       end

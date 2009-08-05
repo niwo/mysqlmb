@@ -98,7 +98,7 @@ module MySqlMb
     end
   
     def mail_header(command, start_time)
-      mail_message =<<--END
+      mail_message =<<-END
 -------------------------------------------------------------------
   MySQL maintenance on #{@connection[:host]}
   #{start_time.strftime("Start Time: %a %d.%m.%Y %H:%M")}
