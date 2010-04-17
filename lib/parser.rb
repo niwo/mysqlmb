@@ -5,16 +5,15 @@ require 'date'
 require 'yaml'
   
 module MySqlMb
- 
   class Parser
     # all commands
-    CMD = %w[backup restore optimize cleanup list]
+    CMD = %w[backup restore optimize cleanup list help]
  
     # commands which require no MySQL user/password
     NO_CREDENTIALS = { 'list' => {:list_type => :backup},
-                       'cleanup' => {}
-                     }
- 
+                       'cleanup' => {},
+                       'help' => {} }
+
     def initialize
       @connection  = {}
       @paths       = {}
@@ -81,8 +80,8 @@ module MySqlMb
       @connection[:password]    ||= ''
       
       # default paths
-      @paths[:logfile]          ||= (APP_PATH + "/log/mysqlmb.log")
-      @paths[:backup]           ||=  File.expand_path(APP_PATH + '/backups')
+      @paths[:logfile]          ||= File.join(File.dirname(__FILE__), *%w[.. log mysqlmb.log])
+      @paths[:backup]           ||= File.join(File.dirname(__FILE__), *%w[.. backups])
       @paths[:mysql]            ||= '/usr/bin/mysql'
       @paths[:mysqldump]        ||= '/usr/bin/mysqldump'
       @paths[:mysqlcheck]       ||= '/usr/bin/mysqlcheck'
@@ -95,7 +94,7 @@ module MySqlMb
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
       @options[:debug]            = false  if @options[:debug].nil?
-      @options[:verbose]          = false  if @options[:verbose].nil?
+      @options[:verbose]          = true  if @options[:verbose].nil?
       @options[:optimize]         = false  if @options[:optimize].nil?
       @options[:mail]             = false  if @options[:mail].nil?
       @options[:force]            = false  if @options[:force].nil?
@@ -192,8 +191,8 @@ module MySqlMb
         load_configfile(file)
       end
       
-      opts.on( '-v', '--verbose', 'Output more information' ) do
-        @options[:verbose] = true
+      opts.on( '-q', '--quite', 'Surpress program output' ) do
+        @options[:verbose] = false
       end
  
       opts.on( '-f', '--force', 'Force backup file deletion' ) do

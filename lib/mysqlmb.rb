@@ -1,3 +1,5 @@
+require 'lib/helpers'
+
 module MySqlMb
 
   class MySQLMaint 
@@ -29,7 +31,7 @@ module MySqlMb
     end
 
     def db_backup(databases=[])
-      puts "[--] Start datbase backup..." if @verbose
+      puts Text.tty_msg("Start datbase backup...") if @verbose
       error_count = 0
 
       # check for emptiness or keyword within db-Array
@@ -42,23 +44,23 @@ module MySqlMb
         if $? == 0
           File.rename("#{dump_file}.tmp", dump_file)
           %x[bzip2 -f #{dump_file}]
-          message = "[OK] Successfully backed up database: #{db}"
+          message = Text.tty_msg("Successfully backed up database: #{db}", :done)
           puts message if @verbose
           @logger.add(Logger::INFO, message)
         else
           error_count += 1
-          message = "[!!] Backup failed on database: #{db}"
+          message = Text.tty_msg("Backup failed on database: #{db}", :error)
           puts message if @verbose
           @logger.add(Logger::ERROR, "#{message}, user: #{@user}, using password: #{@password.empty?}")
         end
       end
       msg = "#{databases.size - error_count} from #{databases.size} databases backed up successfully"
-      puts "[--] End of backup: #{msg}" if @verbose
+      puts Text.tty_msg("End of backup: #{msg}") if @verbose
       return error_count, msg
     end
 
     def db_restore(databases, day = -1)
-      puts "Start restoring databases..." if @verbose
+      puts Text.tty_msg("Start restoring databases...") if @verbose
       error_count = 0
       all_dbs = databases({:type => :all})
     
@@ -71,12 +73,12 @@ module MySqlMb
          %x[echo CREATE DATABASE \\`#{backup.db_name}\\` | #{@paths[:mysql]}  #{@credentials}]
          if $? != 0
            error_count += 1
-           message = "[!!] can't create database #{backup.db_db} message: #{$?}"
+           message = Text.tty_msg("can't create database #{backup.db_db} message: #{$?}", :error)
            @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
            puts message if @verbose
            next
          else 
-           message = "[OK] created database #{backup.db_name}"
+           message = Text.tty_msg("created database #{backup.db_name}", :done)
            puts message if @verbose
            @logger.add(Logger::INFO, message)
          end
@@ -89,12 +91,12 @@ module MySqlMb
        %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{backup.db_name} < #{backup.path_without_extension}]
        if $? != 0
          error_count += 1
-         message = "[!!] can't restore database #{backup.db_name} message: #{$?}"
+         message = Text.tty_msg("can't restore database #{backup.db_name} message: #{$?}", :error)
          @logger.add(Logger::ERROR, message + " , user: #{@user}, using password: #{!@password.empty?}")
          puts message if @verbose
          next
        else
-         message = "[OK] restored database #{backup.db_name}"
+         message = Text.done_msg("restored database #{backup.db_name}", :done)
          puts message if @verbose
        end
 
@@ -103,7 +105,7 @@ module MySqlMb
       end
 
       msg = "#{backups.size - error_count} from #{backups.size} databases restored successfully"
-      puts "[--] End of restore: #{msg}" if @verbose
+      puts Text.tty_msg("End of restore: #{msg}") if @verbose
       return error_count, msg
     end
 
@@ -115,29 +117,29 @@ module MySqlMb
 
       if @verbose
         if force
-          puts "[--] Delete backups older than #{retention} days:"
+          puts Text.tty_msg("Delete backups older than #{retention} days:")
         else
-          puts "[--] Listing  backups older than #{retention} days which would be deleted if you use the --force/-f option:"
+          puts Text.tty_msg("Listing backups older than #{retention} days which would be deleted if you use the --force/-f option:")
         end
       end
 
       begin
         get_backup_files(Time.at(0)).each do |f|
           if File.stat(f).mtime < retention_date
-  	  filelist << File.basename(f)
+  	        filelist << File.basename(f)
             puts "[--] remove #{filelist.last}" if @verbose
             File.delete(f) if force
           end
         end
       rescue StandardError => e
-        abort "[!!] Error deleting old backups :" + e.message
+        abort Text.tty_msg("Error deleting old backups :" + e.message, :error)
       end
-      puts "[--] No backups removed" if @verbose && filelist.empty?
+      puts Text.tty_msg("No backups removed") if @verbose && filelist.empty?
       filelist
     end
 
     def chkdb()
-      puts "[--] Start mysqlcheck, this could take a moment..." if @verbose
+      puts Text.info_msg("Start mysqlcheck, this could take a moment...") if @verbose
       check = %x[#{@paths[:mysqlcheck]} --optimize -A #{@credentials} --host=#{@host}]
       @logger.add(Logger::INFO, check)
       puts check if @verbose

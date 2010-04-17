@@ -3,12 +3,8 @@
 require 'lib/parser'
 require 'lib/mysqlmb'
 require 'lib/helpers'
-include SimpleMail
-include DateFormat
-include FileSize
 
-module MySqlMb
-  
+module MySqlMb  
   class Runner
     
     def initialize(args)
@@ -25,6 +21,7 @@ module MySqlMb
       maintenance_error = 0
       
       case command
+      when "help" 
       when "restore"
         mysqlmaint.db_restore(@options[:databases], @options[:restore_offset])
       when "backup"
@@ -35,7 +32,7 @@ module MySqlMb
           mail_message += "Backup of MySQL failed: #{message}\n"
         end
         # calculate size of all backups just made
-        backup_size = FileSize.fsize(mysqlmaint.backup_size(start_time))
+        backup_size = Text.fsize(mysqlmaint.backup_size(start_time))
         mail_message += "Backup file size after compression: #{backup_size}\n"
   
         if maintenance_error == 0 && @options[:retention] > 0
@@ -66,7 +63,7 @@ module MySqlMb
         mail_message += cleanup_message(cleanup)
       end
   
-      execution_time = fduration(Time.now - start_time)
+      execution_time = Text.fduration(Time.now - start_time)
       mail_message += "----------\nMaintenance duration: #{execution_time}\n"
   
       # send confirmation email
@@ -81,7 +78,7 @@ module MySqlMb
       end
     end
     
-    private 
+    private
     
     def load_options(command)
       @connection, @paths, @options = Parser.new.parse(command, @args)
