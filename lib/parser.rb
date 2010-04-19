@@ -17,12 +17,15 @@ module MySqlMb
     def initialize
       @connection  = {}
       @paths       = {}
-      @options     = {}
+      @options     = {} 
+      config_file  = File.join(File.dirname(__FILE__), *%w[.. config mysqlmb.yml])
+      @config_file = config_file if File.exists? config_file 
     end
   
     def parse(command, args)
       optp = optparse(command, args)
-      set_defaults()
+      load_configfile() if @config_file
+      set_defaults() 
       list_options if @options[:debug]
       verify_input(optp, command)
       return @connection, @paths, @options
@@ -33,7 +36,9 @@ module MySqlMb
     def list_options
       puts "Database Connection:"
       @connection.each do |key, value|
-        value = '********' if key == :password
+        if key == :password
+          value = value.empty? ? '<no password>' : '********'
+        end
         puts "\t#{key}: #{value.to_s || 'nil'}"
       end
       puts "Paths:"
@@ -59,18 +64,21 @@ module MySqlMb
       end
     end
  
-    def load_configfile(file, force = false)
+    def load_configfile(file = @config_file)
        file_options = YAML.load_file(file)
-       file_options.each do |key, value|
-         # connection values
-         if [:host, :user, :password].include? key
-           force ? @connection[key] = value : @connection[key] ||= value
-         # path values
-         elsif [:backup_path, :mysql_path, :mysqldump_path, :mysqlcheck_path].include? key
-           key = key.to_s.gsub('_path', '').to_sym
-           force ? @paths[key] = value : @paths[key] ||= value
-         else
-           force ? @options[key] = value : @options[key] ||= value
+       # does the file contain any options?
+       if file_options 
+         file_options.each do |key, value|
+           # connection values
+           if [:host, :user, :password].include? key
+             @connection[key] ||= value
+           # path values
+           elsif [:backup_path, :mysql_path, :mysqldump_path, :mysqlcheck_path].include? key
+             key = key.to_s.gsub('_path', '').to_sym
+             @paths[key] ||= value
+           else
+             @options[key] ||= value
+           end
          end
        end
     end
@@ -183,13 +191,12 @@ module MySqlMb
         @options[:date_format] = format
       end
       
-      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains all options',                                          'see config/config.rb.orig for an example' ) do |file|
-        unless File.exists?(file)
-          puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
-          exit
+      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains default options',                                          'see config/config.rb.orig for an example' ) do |file|
+        if File.exists? file
+          @config_file = file
+        else
+	  puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
         end
-        @options[:config_file] = file
-        load_configfile(file)
       end
       
       opts.on( '-q', '--quite', 'Surpress program output' ) do
