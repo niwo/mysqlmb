@@ -70,7 +70,7 @@ module MySqlMb
       if @options[:mail] && !@options[:mail_to].empty?
         mail_subject = "MySQL Maintenence"
         maintenance_error != 0 ? mail_subject += " - failed" :  mail_subject += " - successful"
-        SimpleMail.send_email("mysql@#{@connection[:host]}", "", @options[:mail_to], "", mail_subject, mail_message)
+        SimpleMail.send_email("mysql@#{@connection[:host]}", @options[:mail_to], mail_subject, mail_message, {@options[:mail_host]})
       end
   
       if @options[:verbose] && %w[backup restore optimize].include?(command)

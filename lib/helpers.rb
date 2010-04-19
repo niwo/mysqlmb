@@ -3,18 +3,19 @@ module MySqlMb
     # smtp for sending mails
     require 'net/smtp'
 
-    def self.send_email(from, from_alias, to, to_alias, subject, message)
-      msg = <<-END_OF_MESSAGE
+    def self.send_email(from, to, subject, message, opts = {})
+      from_alias = opts[:from_alias] || from
+      to_alias   = opts[:to_alias] || to
+      mail_host  = opts[:mail_host] || 'localhost'
+      msg = <<-END_OF_MESSAGE.gsub!(/\n/,"\r\n")
         From: #{from_alias} <#{from}>
         To: #{to_alias} <#{to}>
         MIME-Version: 1.0
         Content-type: text/plain
         Subject: #{subject}
       END_OF_MESSAGE
-      message.gsub!(/\n/,"\r\n")
       msg += message
-
-      Net::SMTP.start('localhost') do |smtp|
+      Net::SMTP.start(mail_host) do |smtp|
         smtp.send_message msg, from, to
       end
     end

@@ -43,3 +43,5 @@
 
 ## specify a receiver for the status mail, no mail will be sent if empty
 # :mail_to: admin@example.com
+## smtp host to use to send mails
+# :mail_host: localhost
