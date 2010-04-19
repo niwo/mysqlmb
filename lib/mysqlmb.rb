@@ -27,7 +27,7 @@ module MySqlMb
 
       # set all paths
       @paths = {}
-      paths.each { |key, value| puts @paths[key] = rm_slash(value) }
+      paths.each { |key, value| @paths[key] = rm_slash(value) }
     end
 
     def db_backup(databases=[])
@@ -244,7 +244,7 @@ module MySqlMb
 
     # removes trailing slashed from path
     def rm_slash(path)
-      path.gsub(/\/+$/, '') rescue path
+      path.gsub(/\/+$/, '')
     end
 
   end # class
