@@ -38,6 +38,7 @@ h1. Installation
 * Create a symlink in order to have mysqlmb in your execution path
 ** <code>ln -s /usr/local/mysqlmb/mysqlmb /usr/local/sbin/mysqlmb</code>
 * Have a mysql user with backup/optimization rights available
-** Minimal rights for backups: SELECT, INSERT
-** for optimizations: RELOAD, LOCK TABLES
+** Minimal rights for backups: SELECT, RELOAD
+** for optimizations: LOCK TABLES
+** example user creation with mysql cmd-tool: <code>GRANT SELECT, RELOAD, LOCK TABLES ON *.* TO backup@localhost IDENTIFIED BY 'password';</code>
 * start automating MySQL maintenance tasks using MySQL-Maintenance-Buddy!
