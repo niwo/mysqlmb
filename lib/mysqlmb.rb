@@ -15,7 +15,7 @@ module MySqlMb
       @user = connection[:user]
       @password = connection[:password]
       @host = connection[:host]
-      @credentials = "--user=#{@user} --password=#{@password}"
+      @credentials = "--user=#{@user} --password='#{@password}'"
     
       # set params or default 
       @date_format = params[:date_format] || "%Y-%m-%d"
@@ -27,7 +27,7 @@ module MySqlMb
 
       # set all paths
       @paths = {}
-      paths.each { |key, value| @paths[key] = rm_slash(value) }
+      paths.each { |key, value| puts @paths[key] = rm_slash(value) }
     end
 
     def db_backup(databases=[])
@@ -139,7 +139,7 @@ module MySqlMb
     end
 
     def chkdb()
-      puts Text.info_msg("Start mysqlcheck, this could take a moment...") if @verbose
+      puts Text.tty_msg("Start mysqlcheck, this could take a moment...") if @verbose
       check = %x[#{@paths[:mysqlcheck]} --optimize -A #{@credentials} --host=#{@host}]
       @logger.add(Logger::INFO, check)
       puts check if @verbose
@@ -244,7 +244,7 @@ module MySqlMb
 
     # removes trailing slashed from path
     def rm_slash(path)
-      path.gsub(/\/+$/, '')
+      path.gsub(/\/+$/, '') rescue path
     end
 
   end # class

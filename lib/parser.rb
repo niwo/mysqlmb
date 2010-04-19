@@ -31,9 +31,9 @@ module MySqlMb
     private
  
     def list_options
-      puts "Connection:"
+      puts "Database Connection:"
       @connection.each do |key, value|
-        value.gsub!(/./) { |s| "*" } if key == :password
+        value = '********' if key == :password
         puts "\t#{key}: #{value.to_s || 'nil'}"
       end
       puts "Paths:"
@@ -66,7 +66,8 @@ module MySqlMb
          if [:host, :user, :password].include? key
            force ? @connection[key] = value : @connection[key] ||= value
          # path values
-         elsif [:backup, :mysql, :mysqldump, :mysqlcheck].include? key
+         elsif [:backup_path, :mysql_path, :mysqldump_path, :mysqlcheck_path].include? key
+           key = key.to_s.gsub('_path', '').to_sym
            force ? @paths[key] = value : @paths[key] ||= value
          else
            force ? @options[key] = value : @options[key] ||= value
@@ -96,7 +97,7 @@ module MySqlMb
       @options[:debug]            = false  if @options[:debug].nil?
       @options[:verbose]          = true  if @options[:verbose].nil?
       @options[:optimize]         = false  if @options[:optimize].nil?
-      @options[:mail]             = false  if @options[:mail].nil?
+      @options[:mail]             = @options[:mail].nil? ? false : true
       @options[:force]            = false  if @options[:force].nil?
     end
  

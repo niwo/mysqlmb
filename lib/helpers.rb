@@ -46,9 +46,9 @@ module MySqlMb
       "\033[0;#{color_code}#{text}\033[1;0m"
     end
     
-    def self.tty_msg(msg, type = :info, width = 40)
+    def self.tty_msg(msg, type = :info, width = 60)
       if type == :info || !MSG_TYPES.include?(type)
-        return info_msg(fixed_width(msg, width))
+        return fixed_width(msg, width)
       end
       return done_msg(fixed_width(msg, width)) if type == :done
       return error_msg(fixed_width(msg, width)) if type == :error
@@ -82,10 +82,6 @@ module MySqlMb
       red("#{msg}\t[ERROR]")
     end
     
-    def self.info_msg(msg)
-      blue("#{msg}\t[INFO]")
-    end
-
     def self.red(text)
       colorize(text, "031m")
     end
