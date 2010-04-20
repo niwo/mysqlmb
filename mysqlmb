@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 #
-# copyright 2009 by Nik Wolfgramm
+# copyright 2010 by Nik Wolfgramm
 # all rights reserved
 # 
 
@@ -14,7 +14,7 @@ require 'lib/runner'
 command = ARGV[0]
 
 #begin
-  MySqlMb::Runner.new(ARGV).run command
+  MySqlMb::Runner.new( MySqlMb::Config.new(ARGV) ).run command
 #rescue StandardError => e
 #  puts e.message
 #  exit 0

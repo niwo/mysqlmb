@@ -2,9 +2,6 @@
 # Example config file for MySQL Buddy
 #
 
-## enable/disable database optimization
-# :optimize: true
-
 ## MySQL instance on localhost
 # :host: localhost
 
@@ -20,7 +17,7 @@
 # :mysqlcheck_path: '/usr/bin/mysqlcheck'
 
 ## where to store the database dump files
-# :backup_path: '/var/backups/mysql'
+# :backup_path: './backups'
 
 ## keep dump files fopr 30 days before deleting them
 # :retention: 30
@@ -45,3 +42,5 @@
 # :mail_to: admin@example.com
 ## smtp host to use to send mails
 # :mail_host: localhost
+## enable/disable mail message, see also :mail_to:
+# :mail: true

@@ -1,69 +1,56 @@
-#!/usr/bin/env ruby
-  
 require 'optparse'
 require 'date'
 require 'yaml'
+require 'ostruct'
   
 module MySqlMb
-  class Parser
-    # all commands
-    CMD = %w[backup restore optimize cleanup list help]
- 
-    # commands which require no MySQL user/password
-    NO_CREDENTIALS = { 'list' => {:list_type => :backup},
-                       'cleanup' => {},
-                       'help' => {} }
-
-    def initialize
+  class Config
+    def initialize(args = {})
       @connection  = {}
       @paths       = {}
       @options     = {} 
       config_file  = File.join(File.dirname(__FILE__), *%w[.. config mysqlmb.yml])
-      @config_file = config_file if File.exists? config_file 
+      @config_file = config_file if File.exists? config_file
+      load(args)
     end
   
-    def parse(command, args)
-      optp = optparse(command, args)
+    def load(args)
+      optp = optparse(args) if args
       load_configfile() if @config_file
       set_defaults() 
-      list_options if @options[:debug]
-      verify_input(optp, command)
       return @connection, @paths, @options
     end
+
+    def connection
+      OpenStruct.new(@connection)
+    end
+
+    def paths
+      OpenStruct.new(@paths)
+    end
     
-    private
- 
-    def list_options
-      puts "Database Connection:"
+    def options
+      OpenStruct.new(@options)
+    end
+
+    def to_s
+      output = ''
+      output << "Database Connection:\n"
       @connection.each do |key, value|
         if key == :password
           value = value.empty? ? '<no password>' : '********'
         end
-        puts "\t#{key}: #{value.to_s || 'nil'}"
+        output << "\t#{key}: #{value.to_s || 'nil'}" + "\n"
       end
-      puts "Paths:"
-      @paths.each {|key, value| puts "\t#{key}: #{value.to_s || 'nil'}" }
-      puts "Options:"
-      @options.each {|key, value| puts "\t#{key}: #{value.to_s || 'nil'}" }
-      exit
+      output << "Paths:\n"
+      @paths.each {|key, value| output << "\t#{key}: #{value.to_s || 'nil'}" + "\n"}
+      output << "Options:\n"
+      @options.each {|key, value| output << "\t#{key}: #{value.to_s || 'nil'}" + "\n"}
+      output
     end
- 
-    def verify_input(optp, command)
-      if missing_credentials? command
-        puts "Please provide at least a password for MySQL user \"#{@connection[:user]}\""
-        puts
-        puts optp.help
-        return false 
-      end
- 
-      unless @options[:version] || CMD.include?(command)
-        puts "Please provide a valid action argument:"
-        puts
-        puts optp.help
-        return false
-      end
-    end
- 
+
+    private
+      
     def load_configfile(file = @config_file)
        file_options = YAML.load_file(file)
        # does the file contain any options?
@@ -75,7 +62,7 @@ module MySqlMb
            # path values
            elsif [:backup_path, :mysql_path, :mysqldump_path, :mysqlcheck_path].include? key
              key = key.to_s.gsub('_path', '').to_sym
-             @paths[key] ||= value
+             @paths[key] ||= rm_slash(value)
            else
              @options[key] ||= value
            end
@@ -102,26 +89,18 @@ module MySqlMb
       @options[:mail_to]        ||= ''
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
-      @options[:debug]            = false  if @options[:debug].nil?
-      @options[:verbose]          = true  if @options[:verbose].nil?
-      @options[:optimize]         = false  if @options[:optimize].nil?
-      @options[:mail]             = @options[:mail].nil? ? false : true
-      @options[:force]            = false  if @options[:force].nil?
+      @options[:mail]             = (@options[:mail_to].empty? ? false : true) unless boolean?(@options[:mail])
+      @options[:debug]            = false unless boolean?(@options[:debug])
+      @options[:verbose]          = true  unless boolean?(@options[:verbose])
+      @options[:force]            = false unless boolean?(@options[:force])
     end
- 
-    def missing_credentials?(command)
-      if (@connection[:user] == '' || @connection[:password] == '')
-        if NO_CREDENTIALS.has_key?(command)
-          return false if NO_CREDENTIALS[command].empty?
-          @options.each {|key, value| return false if NO_CREDENTIALS[command][key] === value }
-          return true
-        end
-        return true
-      end
-      false
+
+    def boolean?(param)
+      c =  param.class
+      c == FalseClass || c == TrueClass ? true : false
     end
     
-    def optparse(command, args)
+    def optparse(args)
       optparse = OptionParser.new do |opts|
       # Set a banner, displayed at the top
       # of the help screen.
@@ -155,10 +134,6 @@ module MySqlMb
         @options[:databases] = db
       end
  
-      opts.on( '--[no-]optimize', 'Disable database optimization' ) do |o|
-        @options[:optimize] = o
-      end
- 
       opts.on( '-r', '--retention-time DAYS', Integer, 'How many days to keep the db backups (default: 30 days)' ) do |days|
         @options[:retention] = days
       end
@@ -171,8 +146,8 @@ module MySqlMb
         @options[:mail_to] = mail
       end
  
-      opts.on( '--[no-]mail', 'activate/deactivate mail messages' ) do |mail|
-        @options[:mail] = mail
+      opts.on( '--no-mail', 'deactivate mail messages' ) do |mail|
+        @options[:mail] = false
       end
  
       opts.on( '-l', '--list-type TYPE', [:mysql, :backup], 'Select list type (mysql, backup)' ) do |type|
@@ -191,11 +166,11 @@ module MySqlMb
         @options[:date_format] = format
       end
       
-      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains default options',                                          'see config/config.rb.orig for an example' ) do |file|
+      opts.on( '-c', '--config-file FILE', 'Specify a configuration file which contains default options',                                          'see config/mysqlmb.yml.dist for an example' ) do |file|
         if File.exists? file
           @config_file = file
         else
-	  puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.conf.dist for an example."
+	  puts "Abort: No configuration file found!\nSee #{APP_PATH}/config/mysqlmb.yml.dist for an example."
         end
       end
       
@@ -222,7 +197,7 @@ module MySqlMb
       opts.on_tail( '--version', "Show version" ) do
           puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
           puts
-          puts "Copyright (C) 2009 Nik Wolfgramm"
+          puts "Copyright (C) 2010 Nik Wolfgramm"
           puts "This is free software; see the source for copying conditions."
           puts "There is NO warranty; not even for MERCHANTABILITY or"
           puts "FITNESS FOR A PARTICULAR PURPOSE."
@@ -232,6 +207,11 @@ module MySqlMb
       
       optparse.parse!(args)
       return optparse  
+    end
+
+    # removes trailing slashed from path
+    def rm_slash(path)
+      path.gsub(/\/+$/, '')
     end
  
   end # class

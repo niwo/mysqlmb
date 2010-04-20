@@ -11,23 +11,21 @@ module MySqlMb
     SYSTEM_DATABASES = %w[mysql information_schema]
   
     def initialize(connection, paths, params)
+      @paths = paths
+
       # set connection parameters
-      @user = connection[:user]
-      @password = connection[:password]
-      @host = connection[:host]
+      @user = connection.user
+      @password = connection.password
+      @host = connection.host
       @credentials = "--user=#{@user} --password='#{@password}'"
-    
+      
       # set params or default 
-      @date_format = params[:date_format] || "%Y-%m-%d"
-      @verbose = params[:verbose] || false 
+      @date_format = params.date_format || "%Y-%m-%d"
+      @verbose = params.verbose || false 
     
       # initialize log file
-      logfile = File.open(paths[:logfile], File::WRONLY | File::APPEND | File::CREAT)
+      logfile = File.open(paths.logfile, File::WRONLY | File::APPEND | File::CREAT)
       @logger = Logger.new(logfile, 10, 1024000)
-
-      # set all paths
-      @paths = {}
-      paths.each { |key, value| @paths[key] = rm_slash(value) }
     end
 
     def db_backup(databases=[])
@@ -38,9 +36,9 @@ module MySqlMb
       databases = get_databases(databases)
 
       databases.each do |db|
-        dump_file = "#{@paths[:backup]}/#{back_date()}-#{db}"
+        dump_file = "#{@paths.backup}/#{back_date()}-#{db}"
         @logger.add(Logger::INFO, "Backing up database #{db} ...")
-        %x[#{@paths[:mysqldump]} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
+        %x[#{@paths.mysqldump} --opt --flush-logs --allow-keywords -q -a -c #{@credentials} --host=#{@host} #{db} > #{dump_file}.tmp]
         if $? == 0
           File.rename("#{dump_file}.tmp", dump_file)
           %x[bzip2 -f #{dump_file}]
@@ -70,7 +68,7 @@ module MySqlMb
       backups.each do |backup|
        # make sure the database exists
        unless all_dbs.include?(backup.db_name)
-         %x[echo CREATE DATABASE \\`#{backup.db_name}\\` | #{@paths[:mysql]}  #{@credentials}]
+         %x[echo CREATE DATABASE \\`#{backup.db_name}\\` | #{@paths.mysql}  #{@credentials}]
          if $? != 0
            error_count += 1
            message = Text.tty_msg("can't create database #{backup.db_db} message: #{$?}", :error)
@@ -88,7 +86,7 @@ module MySqlMb
        %x[bunzip2 -k #{backup.path}] if File.exist?(backup.path)
 
        # restore database
-       %x[#{@paths[:mysql]} #{@credentials} --host=#{@host} #{backup.db_name} < #{backup.path_without_extension}]
+       %x[#{@paths.mysql} #{@credentials} --host=#{@host} #{backup.db_name} < #{backup.path_without_extension}]
        if $? != 0
          error_count += 1
          message = Text.tty_msg("can't restore database #{backup.db_name} message: #{$?}", :error)
@@ -140,7 +138,7 @@ module MySqlMb
 
     def chkdb()
       puts Text.tty_msg("Start mysqlcheck, this could take a moment...") if @verbose
-      check = %x[#{@paths[:mysqlcheck]} --optimize -A #{@credentials} --host=#{@host}]
+      check = %x[#{@paths.mysqlcheck} --optimize -A #{@credentials} --host=#{@host}]
       @logger.add(Logger::INFO, check)
       puts check if @verbose
     end
@@ -183,7 +181,7 @@ module MySqlMb
       file_filter = options[:file_filter] || ".*\.bz2$"
       files = []
       begin
-        Find.find(@paths[:backup]) do |f|
+        Find.find(@paths.backup) do |f|
           if File.stat(f).ctime > time_limit && File.basename(f) =~ /#{file_filter}/
             files << f
           end
@@ -196,7 +194,7 @@ module MySqlMb
 
     def databases(options = {})
       # ask mysql for a list of all dbs, remove first entry which reads "Databases"
-      dbs = %x[echo "show databases" | #{@paths[:mysql]} #{@credentials}].split("\n")[1..-1]
+      dbs = %x[echo "show databases" | #{@paths.mysql} #{@credentials}].split("\n")[1..-1]
 
       if $? != 0
         error = "mysql \"show databases\" failed: return value #{$?}, user: #{@user}, using password: #{!@password.empty?}"
@@ -241,11 +239,5 @@ module MySqlMb
       end
       databases
     end
-
-    # removes trailing slashed from path
-    def rm_slash(path)
-      path.gsub(/\/+$/, '')
-    end
-
   end # class
 end # module
