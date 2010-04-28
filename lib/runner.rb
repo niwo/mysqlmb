@@ -56,7 +56,7 @@ module MySqlMb
         mail_message += "All databases have been optimized with mysqlcheck\n"
       when "list"
         if @config.options.list_type == :mysql
-          dbs = mysqlmaint.get_databases(@config.databases, :mysql)
+          dbs = mysqlmaint.get_databases(@config.options.databases, :mysql)
           puts "Found #{dbs.size} database(s):"
           dbs.each { |db| puts db }
         else
