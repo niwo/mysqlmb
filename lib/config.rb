@@ -74,6 +74,7 @@ module MySqlMb
       # default connetion
       @connection[:user]        ||= 'backup'
       @connection[:password]    ||= ''
+      @connection[:host]        ||= 'localhost'
       
       # default paths
       @paths[:logfile]          ||= File.join(File.dirname(__FILE__), *%w[.. log mysqlmb.log])
@@ -87,6 +88,7 @@ module MySqlMb
       @options[:retention]      ||= 30
       @options[:restore_offset] ||= -1
       @options[:mail_to]        ||= ''
+      @options[:mail_host]      ||= 'localhost'
       @options[:list_type]      ||= :mysql
       @options[:date_format]    ||= "%Y-%m-%d"
       @options[:mail]             = (@options[:mail_to].empty? ? false : true) unless boolean?(@options[:mail])
