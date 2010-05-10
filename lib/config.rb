@@ -108,7 +108,7 @@ module MySqlMb
       # of the help screen.
       opts.banner = "Usage: mysqlmb COMMAND [options]"
       opts.program_name = "MySQL Maintenance Buddy"
-      opts.version = "1.3"
+      opts.version = "0.2"
       opts.summary_width = 30
       opts.summary_indent = "  "
       opts.separator ""
@@ -197,7 +197,7 @@ module MySqlMb
       end
  
       opts.on_tail( '--version', "Show version" ) do
-          puts "#{opts.program_name} v.#{opts.version}, written by Nik Wolfgramm"
+          puts "#{opts.program_name} v.#{opts.version}"
           puts
           puts "Copyright (C) 2010 Nik Wolfgramm"
           puts "This is free software; see the source for copying conditions."
