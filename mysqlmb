@@ -6,9 +6,13 @@
 # 
 
 # resolve the application path
-libdir = File.dirname( (File.readlink(__FILE__) rescue File.dirname(__FILE__)) )
+appdir = File.symlink?(__FILE__) ?
+		File.dirname(File.readlink(__FILE__)) :
+                File.dirname(__FILE__)
+libdir = File.expand_path(appdir, "/../lib")
 $LOAD_PATH.unshift(libdir) unless $LOAD_PATH.include?(libdir)
 
+#require appdir + '/lib/runner'
 require 'lib/runner'
 
 command = ARGV[0]
