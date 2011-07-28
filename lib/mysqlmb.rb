@@ -29,7 +29,7 @@ module MySqlMb
     end
 
     def db_backup(databases=[])
-      puts Text.tty_msg("Start datbase backup...") if @verbose
+      puts Text.tty_msg("Start database backup...") if @verbose
       error_count = 0
 
       # check for emptiness or keyword within db-Array
